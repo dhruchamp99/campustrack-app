@@ -8,6 +8,7 @@ import axios from 'axios';
 import { Plus, Trash2, Search, GraduationCap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
+import API_BASE_URL from '../../config/apiConfig';
 
 const ManageStudents = () => {
     const [students, setStudents] = useState([]);
@@ -30,7 +31,7 @@ const ManageStudents = () => {
 
     const fetchStudents = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/students', {
+            const res = await axios.get(`${API_BASE_URL}/api/admin/students`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setStudents(res.data);
@@ -45,7 +46,7 @@ const ManageStudents = () => {
         console.log('Submitting student data:', formData);
 
         try {
-            const response = await axios.post('http://localhost:5000/api/admin/students', formData, {
+            const response = await axios.post(`${API_BASE_URL}/api/admin/students`, formData, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             console.log('Student created:', response.data);
@@ -85,7 +86,7 @@ const ManageStudents = () => {
             }
 
             const response = await axios.put(
-                `http://localhost:5000/api/admin/users/${editingStudent._id}`,
+                `${API_BASE_URL}/api/admin/users/${editingStudent._id}`,
                 updateData,
                 { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
             );
@@ -128,7 +129,7 @@ const ManageStudents = () => {
                         onClick={async () => {
                             toast.dismiss(t.id);
                             try {
-                                await axios.delete(`http://localhost:5000/api/admin/users/${student._id}`, {
+                                await axios.delete(`${API_BASE_URL}/api/admin/users/${student._id}`, {
                                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
                                 });
                                 toast.success(`${student.name} deleted successfully!`);

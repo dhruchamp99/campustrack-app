@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { PieChart, Clock, AlertTriangle, Calendar, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import API_BASE_URL from '../../config/apiConfig';
 
 const ProgressBar = ({ value, className }) => (
     <div className={`h-3 w-full bg-secondary rounded-full overflow-hidden ${className}`}>
@@ -33,7 +34,7 @@ export const StudentDashboard = () => {
                 return;
             }
 
-            const res = await axios.get(`http://localhost:5000/api/attendance/student/${user.id}`, {
+            const res = await axios.get(`${API_BASE_URL}/api/attendance/student/${user.id}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             console.log('Fetched attendance data:', res.data);

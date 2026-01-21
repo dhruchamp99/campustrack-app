@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { BookOpen, UserCheck, Calendar } from 'lucide-react';
+import API_BASE_URL from '../../config/apiConfig';
 
 export const TeacherDashboard = () => {
     const { user } = useAuth();
@@ -15,7 +16,7 @@ export const TeacherDashboard = () => {
     useEffect(() => {
         const fetchSubjects = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/teacher/subjects', {
+                const res = await axios.get(`${API_BASE_URL}/api/teacher/subjects`, {
                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
                 });
                 setSubjects(res.data);

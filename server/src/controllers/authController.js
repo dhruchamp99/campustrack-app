@@ -78,10 +78,14 @@ const loginUser = async (req, res) => {
 
     if (user && (await user.matchPassword(password))) {
         res.json({
-            _id: user.id,
+            id: user._id,
+            _id: user._id,
             name: user.name,
             email: user.email,
+            enrollmentNumber: user.enrollmentNumber,
             role: user.role,
+            department: user.department,
+            semester: user.semester,
             token: generateToken(user._id)
         });
     } else {
@@ -101,7 +105,8 @@ const getMe = async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        enrollmentNumber: user.enrollmentNumber
+        enrollmentNumber: user.enrollmentNumber,
+        semester: user.semester
     });
 };
 

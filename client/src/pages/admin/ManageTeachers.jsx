@@ -8,6 +8,7 @@ import axios from 'axios';
 import { Plus, Trash2, Search, Users, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
+import API_BASE_URL from '../../config/apiConfig';
 
 const ManageTeachers = () => {
     const [teachers, setTeachers] = useState([]);
@@ -30,7 +31,7 @@ const ManageTeachers = () => {
 
     const fetchTeachers = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/teachers', {
+            const res = await axios.get(`${API_BASE_URL}/api/admin/teachers`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setTeachers(res.data);
@@ -42,7 +43,7 @@ const ManageTeachers = () => {
 
     const fetchSubjects = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/subjects', {
+            const res = await axios.get(`${API_BASE_URL}/api/admin/subjects`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setSubjects(res.data);
@@ -55,7 +56,7 @@ const ManageTeachers = () => {
         e.preventDefault();
         try {
             // First create the teacher
-            const teacherRes = await axios.post('http://localhost:5000/api/admin/teachers', formData, {
+            const teacherRes = await axios.post(`${API_BASE_URL}/api/admin/teachers`, formData, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
 
@@ -64,7 +65,7 @@ const ManageTeachers = () => {
             // Then assign subjects to the teacher
             if (selectedSubjects.length > 0) {
                 await Promise.all(selectedSubjects.map(subjectId =>
-                    axios.put(`http://localhost:5000/api/admin/subjects/${subjectId}`,
+                    axios.put(`${API_BASE_URL}/api/admin/subjects/${subjectId}`,
                         { teacherId },
                         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
                     )
@@ -102,7 +103,7 @@ const ManageTeachers = () => {
                         onClick={async () => {
                             toast.dismiss(t.id);
                             try {
-                                await axios.delete(`http://localhost:5000/api/admin/users/${teacher._id}`, {
+                                await axios.delete(`${API_BASE_URL}/api/admin/users/${teacher._id}`, {
                                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
                                 });
                                 toast.success(`${teacher.name} deleted successfully!`);

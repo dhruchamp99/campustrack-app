@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { toast, Toaster } from 'react-hot-toast';
+import API_BASE_URL from '../../config/apiConfig';
 
 const AttendanceMarking = () => {
     const [searchParams] = useSearchParams();
@@ -20,7 +21,7 @@ const AttendanceMarking = () => {
         // Fetch subjects
         const fetchSubjects = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/teacher/subjects', {
+                const res = await axios.get(`${API_BASE_URL}/api/teacher/subjects`, {
                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
                 });
                 setSubjects(res.data);
@@ -40,7 +41,7 @@ const AttendanceMarking = () => {
         try {
             setLoading(true);
             console.log('Fetching students for subject:', selectedSubject);
-            const res = await axios.get(`http://localhost:5000/api/teacher/students/${selectedSubject}`, {
+            const res = await axios.get(`${API_BASE_URL}/api/teacher/students/${selectedSubject}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             console.log('Fetched students:', res.data);
@@ -86,7 +87,7 @@ const AttendanceMarking = () => {
             };
             console.log('Submitting attendance:', payload);
 
-            const response = await axios.post('http://localhost:5000/api/attendance/mark', payload, {
+            const response = await axios.post(`${API_BASE_URL}/api/attendance/mark`, payload, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
 

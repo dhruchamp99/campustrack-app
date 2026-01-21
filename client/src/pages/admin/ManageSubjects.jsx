@@ -7,6 +7,7 @@ import { Label } from '../../components/ui/label';
 import axios from 'axios';
 import { Plus, Trash2, Search, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
+import API_BASE_URL from '../../config/apiConfig';
 
 const ManageSubjects = () => {
     const [subjects, setSubjects] = useState([]);
@@ -29,7 +30,7 @@ const ManageSubjects = () => {
 
     const fetchSubjects = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/subjects', {
+            const res = await axios.get(`${API_BASE_URL}/api/admin/subjects`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setSubjects(res.data);
@@ -41,7 +42,7 @@ const ManageSubjects = () => {
 
     const fetchTeachers = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/teachers', {
+            const res = await axios.get(`${API_BASE_URL}/api/admin/teachers`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             setTeachers(res.data);
@@ -53,7 +54,7 @@ const ManageSubjects = () => {
     const handleAddSubject = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://localhost:5000/api/admin/subjects', formData, {
+            await axios.post(`${API_BASE_URL}/api/admin/subjects`, formData, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             alert('Subject added successfully!');

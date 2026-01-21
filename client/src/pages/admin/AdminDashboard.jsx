@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Users, GraduationCap, BookOpen, TrendingUp, AlertCircle, Download } from 'lucide-react';
 import axios from 'axios';
 import { Button } from '../../components/ui/button';
+import API_BASE_URL from '../../config/apiConfig';
 
 export const AdminDashboard = () => {
     const [report, setReport] = useState([]);
@@ -14,7 +15,7 @@ export const AdminDashboard = () => {
         // We need robust endpoints for stats. For now, fetch report
         try {
             setRefreshing(true);
-            const res = await axios.get('http://localhost:5000/api/attendance/report', {
+            const res = await axios.get(`${API_BASE_URL}/api/attendance/report`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             console.log('Fetched report:', res.data);
