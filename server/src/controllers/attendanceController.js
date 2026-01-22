@@ -168,11 +168,16 @@ const getTeacherSubmittedAttendance = async (req, res) => {
             });
         });
 
-        // Convert to array format
+        // Convert to array format and sort students by enrollment number
         const formattedData = [];
         Object.keys(groupedData).forEach(dateKey => {
             Object.keys(groupedData[dateKey]).forEach(subjectKey => {
-                formattedData.push(groupedData[dateKey][subjectKey]);
+                const record = groupedData[dateKey][subjectKey];
+                // Sort students by enrollment number in ascending order
+                record.students.sort((a, b) => {
+                    return a.enrollmentNumber.localeCompare(b.enrollmentNumber, undefined, { numeric: true });
+                });
+                formattedData.push(record);
             });
         });
 

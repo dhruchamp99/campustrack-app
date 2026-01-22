@@ -22,7 +22,16 @@ const AttendanceStore = () => {
             const res = await axios.get(`${API_BASE_URL}/api/attendance/teacher/submitted`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
-            setAttendanceRecords(res.data);
+
+            // Sort students by enrollment number in each record
+            const sortedRecords = res.data.map(record => ({
+                ...record,
+                students: [...record.students].sort((a, b) =>
+                    a.enrollmentNumber.localeCompare(b.enrollmentNumber, undefined, { numeric: true })
+                )
+            }));
+
+            setAttendanceRecords(sortedRecords);
         } catch (error) {
             console.error('Error fetching attendance records:', error);
             toast.error(error.response?.data?.message || 'Failed to fetch attendance records');

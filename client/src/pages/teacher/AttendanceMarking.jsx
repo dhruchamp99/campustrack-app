@@ -53,13 +53,18 @@ const AttendanceMarking = () => {
                 return;
             }
 
-            // Initialize students with default status 'present'
-            const studentsWithStatus = res.data.map(s => ({
-                studentId: s._id,
-                name: s.name,
-                enrollmentNumber: s.enrollmentNumber,
-                status: 'present'
-            }));
+            // Initialize students with default status 'present' and sort by enrollment number
+            const studentsWithStatus = res.data
+                .map(s => ({
+                    studentId: s._id,
+                    name: s.name,
+                    enrollmentNumber: s.enrollmentNumber,
+                    status: 'present'
+                }))
+                .sort((a, b) => {
+                    // Sort by enrollment number in ascending order
+                    return a.enrollmentNumber.localeCompare(b.enrollmentNumber, undefined, { numeric: true });
+                });
             setStudents(studentsWithStatus);
             toast.success(`Loaded ${res.data.length} students successfully!`);
         } catch (error) {

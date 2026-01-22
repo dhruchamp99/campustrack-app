@@ -33,7 +33,7 @@ const getStudentsForSubject = async (req, res) => {
             role: 'student',
             department: subject.department,
             semester: subject.semester
-        }).select('-password').sort({ name: 1 });
+        }).select('-password').sort({ enrollmentNumber: 1 }); // Sort by enrollment number ascending
 
         res.json(students);
     } catch (error) {
