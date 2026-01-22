@@ -52,7 +52,8 @@ const AttendanceStore = () => {
         csvContent += `Enrollment Number,Student Name,Status\n`;
 
         students.forEach(student => {
-            csvContent += `${student.enrollmentNumber},${student.name},${student.status.toUpperCase()}\n`;
+            // Use ="number" format to prevent Excel from converting to scientific notation
+            csvContent += `="${student.enrollmentNumber}",${student.name},${student.status.toUpperCase()}\n`;
         });
 
         // Create blob and download
@@ -251,8 +252,8 @@ const AttendanceStore = () => {
                                                                     <td className="py-2 px-3">{student.name}</td>
                                                                     <td className="py-2 px-3 text-center">
                                                                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${student.status === 'present'
-                                                                                ? 'bg-green-100 text-green-700'
-                                                                                : 'bg-red-100 text-red-700'
+                                                                            ? 'bg-green-100 text-green-700'
+                                                                            : 'bg-red-100 text-red-700'
                                                                             }`}>
                                                                             {student.status.toUpperCase()}
                                                                         </span>
