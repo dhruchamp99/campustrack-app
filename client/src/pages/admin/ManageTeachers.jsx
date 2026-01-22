@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import axios from 'axios';
-import { Plus, Trash2, Search, Users, X } from 'lucide-react';
+import { Plus, Trash2, Search, Users, X, Edit } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import API_BASE_URL from '../../config/apiConfig';
@@ -16,6 +16,7 @@ const ManageTeachers = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
+    const [editingTeacher, setEditingTeacher] = useState(null);
     const [selectedSubjects, setSelectedSubjects] = useState([]);
     const [formData, setFormData] = useState({
         name: '',
@@ -124,6 +125,78 @@ const ManageTeachers = () => {
         });
     };
 
+    const handleEdit = (teacher) => {
+        setEditingTeacher(teacher);
+        setFormData({
+            name: teacher.name,
+            email: teacher.email,
+            password: '',
+            department: teacher.department
+        });
+        // Get subjects assigned to this teacher
+        const teacherSubjectIds = subjects
+            .filter(s => s.teacherId?._id === teacher._id)
+            .map(s => s._id);
+        setSelectedSubjects(teacherSubjectIds);
+        setShowAddForm(true);
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        try {
+            // Update teacher info (only if password is provided)
+            const updateData = { ...formData };
+            if (!updateData.password) {
+                delete updateData.password;
+            }
+
+            await axios.put(
+                `${API_BASE_URL}/api/admin/users/${editingTeacher._id}`,
+                updateData,
+                { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+            );
+
+            // Get current teacher subjects
+            const currentSubjects = subjects.filter(s => s.teacherId?._id === editingTeacher._id);
+            const currentSubjectIds = currentSubjects.map(s => s._id);
+
+            // Unassign removed subjects
+            const removedSubjects = currentSubjectIds.filter(id => !selectedSubjects.includes(id));
+            await Promise.all(removedSubjects.map(subjectId =>
+                axios.put(`${API_BASE_URL}/api/admin/subjects/${subjectId}`,
+                    { teacherId: null },
+                    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                )
+            ));
+
+            // Assign new subjects
+            const newSubjects = selectedSubjects.filter(id => !currentSubjectIds.includes(id));
+            await Promise.all(newSubjects.map(subjectId =>
+                axios.put(`${API_BASE_URL}/api/admin/subjects/${subjectId}`,
+                    { teacherId: editingTeacher._id },
+                    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                )
+            ));
+
+            toast.success(`Teacher ${formData.name} updated successfully!`);
+            setShowAddForm(false);
+            setEditingTeacher(null);
+            setFormData({ name: '', email: '', password: '', department: '' });
+            setSelectedSubjects([]);
+            fetchTeachers();
+            fetchSubjects();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to update teacher');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setShowAddForm(false);
+        setEditingTeacher(null);
+        setFormData({ name: '', email: '', password: '', department: '' });
+        setSelectedSubjects([]);
+    };
+
     const toggleSubject = (subjectId) => {
         setSelectedSubjects(prev =>
             prev.includes(subjectId)
@@ -155,7 +228,12 @@ const ManageTeachers = () => {
                         </h2>
                         <p className="text-muted-foreground mt-1">Add, view, and manage teacher accounts</p>
                     </div>
-                    <Button onClick={() => setShowAddForm(!showAddForm)} className="gap-2">
+                    <Button onClick={() => {
+                        setEditingTeacher(null);
+                        setFormData({ name: '', email: '', password: '', department: '' });
+                        setSelectedSubjects([]);
+                        setShowAddForm(!showAddForm);
+                    }} className="gap-2">
                         <Plus className="w-4 h-4" />
                         Add New Teacher
                     </Button>
@@ -182,11 +260,13 @@ const ManageTeachers = () => {
                     >
                         <Card className="border-primary/50 shadow-lg">
                             <CardHeader>
-                                <CardTitle>Add New Teacher</CardTitle>
-                                <CardDescription>Fill in the details and assign subjects</CardDescription>
+                                <CardTitle>{editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}</CardTitle>
+                                <CardDescription>
+                                    {editingTeacher ? 'Update teacher information and reassign subjects' : 'Fill in the details and assign subjects'}
+                                </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={handleAddTeacher} className="space-y-6">
+                                <form onSubmit={editingTeacher ? handleUpdate : handleAddTeacher} className="space-y-6">
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor="name">Full Name *</Label>
@@ -208,13 +288,16 @@ const ManageTeachers = () => {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="password">Password *</Label>
+                                            <Label htmlFor="password">
+                                                Password {editingTeacher ? '(leave blank to keep current)' : '*'}
+                                            </Label>
                                             <Input
                                                 id="password"
                                                 type="password"
-                                                required
+                                                required={!editingTeacher}
                                                 value={formData.password}
                                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                placeholder={editingTeacher ? 'Leave blank to keep current password' : ''}
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -279,13 +362,12 @@ const ManageTeachers = () => {
                                     </div>
 
                                     <div className="flex gap-3 justify-end">
-                                        <Button type="button" variant="outline" onClick={() => {
-                                            setShowAddForm(false);
-                                            setSelectedSubjects([]);
-                                        }}>
+                                        <Button type="button" variant="outline" onClick={handleCancelEdit}>
                                             Cancel
                                         </Button>
-                                        <Button type="submit">Add Teacher</Button>
+                                        <Button type="submit">
+                                            {editingTeacher ? 'Update Teacher' : 'Add Teacher'}
+                                        </Button>
                                     </div>
                                 </form>
                             </CardContent>
@@ -340,14 +422,24 @@ const ManageTeachers = () => {
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                            onClick={() => handleDelete(teacher)}
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
+                                                        <div className="flex gap-2 justify-end">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-primary hover:text-primary hover:bg-primary/10"
+                                                                onClick={() => handleEdit(teacher)}
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                onClick={() => handleDelete(teacher)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );

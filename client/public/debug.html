@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusTrack Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        button { padding: 10px 20px; font-size: 16px; margin: 5px; }
+        input { padding: 10px; width: 100%; margin: 5px 0; font-size: 16px; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>CampusTrack Debug Tool</h1>
+    
+    <div id="status"></div>
+    
+    <h2>Test Backend Connection</h2>
+    <button onclick="testBackend()">Test Backend</button>
+    
+    <h2>Test Login</h2>
+    <input type="text" id="email" placeholder="Email" value="dhru@campus.com">
+    <input type="password" id="password" placeholder="Password" value="admin123">
+    <button onclick="testLogin()">Test Login</button>
+    
+    <h2>Results:</h2>
+    <pre id="results"></pre>
+
+    <script>
+        const API_URL = 'https://campustrack-app-2.onrender.com';
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.textContent += `[${timestamp}] ${message}\n`;
+            
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = message;
+        }
+        
+        async function testBackend() {
+            log('Testing backend connection...');
+            try {
+                const response = await fetch(API_URL);
+                const text = await response.text();
+                log(`✅ Backend is alive! Response: ${text}`, 'success');
+            } catch (error) {
+                log(`❌ Backend error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            log('Testing login...');
+            log(`API URL: ${API_URL}/api/auth/login`);
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        role: 'admin'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Login successful!`, 'success');
+                    log(`Token: ${data.token.substring(0, 20)}...`);
+                    log(`User: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    log(`❌ Login failed: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-test on load
+        window.onload = () => {
+            log('Debug tool loaded. API URL: ' + API_URL);
+            testBackend();
+        };
+    </script>
+</body>
+</html>

@@ -12,7 +12,8 @@ import {
     CheckSquare,
     Menu,
     X,
-    Bell
+    Bell,
+    Archive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -42,6 +43,7 @@ const DashboardLayout = ({ children }) => {
                 { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
                 { href: '/teacher/subjects', label: 'My Subjects', icon: BookOpen },
                 { href: '/teacher/attendance', label: 'Mark Attendance', icon: CheckSquare },
+                { href: '/teacher/store', label: 'Store', icon: Archive },
             ];
         } else {
             return [

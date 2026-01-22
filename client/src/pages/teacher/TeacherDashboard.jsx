@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { BookOpen, UserCheck, Calendar } from 'lucide-react';
+import { BookOpen, UserCheck, Calendar, Archive } from 'lucide-react';
 import API_BASE_URL from '../../config/apiConfig';
 
 export const TeacherDashboard = () => {
@@ -37,12 +37,20 @@ export const TeacherDashboard = () => {
                         <h2 className="text-3xl font-bold tracking-tight">Teacher Dashboard</h2>
                         <p className="text-muted-foreground">Manage your classes and attendances effortlessly.</p>
                     </div>
-                    <Link to="/teacher/attendance">
-                        <Button className="gap-2 shadow-lg bg-primary hover:bg-primary/90">
-                            <UserCheck className="w-4 h-4" />
-                            Mark New Attendance
-                        </Button>
-                    </Link>
+                    <div className="flex gap-2">
+                        <Link to="/teacher/store">
+                            <Button variant="outline" className="gap-2">
+                                <Archive className="w-4 h-4" />
+                                Store
+                            </Button>
+                        </Link>
+                        <Link to="/teacher/attendance">
+                            <Button className="gap-2 shadow-lg bg-primary hover:bg-primary/90">
+                                <UserCheck className="w-4 h-4" />
+                                Mark New Attendance
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Stats or Quick Actions could go here */}

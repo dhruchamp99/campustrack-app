@@ -118,9 +118,74 @@ const getAttendanceReport = async (req, res) => {
     }
 };
 
+// @desc    Get Teacher's Submitted Attendance Records
+// @route   GET /api/attendance/teacher/submitted
+// @access  Private (Teacher)
+const getTeacherSubmittedAttendance = async (req, res) => {
+    try {
+        const teacherId = req.user.id;
+
+        // Find all attendance records marked by this teacher
+        const attendanceRecords = await Attendance.find({ markedBy: teacherId })
+            .populate('studentId', 'name enrollmentNumber')
+            .populate('subjectId', 'subjectName subjectCode department semester')
+            .sort({ date: -1, subjectId: 1 });
+
+        // Filter out records where student or subject was deleted
+        const validRecords = attendanceRecords.filter(
+            record => record.studentId !== null && record.subjectId !== null
+        );
+
+        // Group by date and subject
+        const groupedData = {};
+        validRecords.forEach(record => {
+            const dateKey = record.date.toISOString().split('T')[0];
+            const subjectKey = record.subjectId._id.toString();
+
+            if (!groupedData[dateKey]) {
+                groupedData[dateKey] = {};
+            }
+
+            if (!groupedData[dateKey][subjectKey]) {
+                groupedData[dateKey][subjectKey] = {
+                    subject: {
+                        _id: record.subjectId._id,
+                        subjectName: record.subjectId.subjectName,
+                        subjectCode: record.subjectId.subjectCode,
+                        department: record.subjectId.department,
+                        semester: record.subjectId.semester
+                    },
+                    date: record.date,
+                    students: []
+                };
+            }
+
+            groupedData[dateKey][subjectKey].students.push({
+                _id: record._id,
+                enrollmentNumber: record.studentId.enrollmentNumber,
+                name: record.studentId.name,
+                status: record.status
+            });
+        });
+
+        // Convert to array format
+        const formattedData = [];
+        Object.keys(groupedData).forEach(dateKey => {
+            Object.keys(groupedData[dateKey]).forEach(subjectKey => {
+                formattedData.push(groupedData[dateKey][subjectKey]);
+            });
+        });
+
+        res.json(formattedData);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     markAttendance,
     getSubjectAttendance,
     getStudentAttendance,
-    getAttendanceReport
+    getAttendanceReport,
+    getTeacherSubmittedAttendance
 };

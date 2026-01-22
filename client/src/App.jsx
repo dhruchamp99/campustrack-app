@@ -8,6 +8,7 @@ import ManageTeachers from './pages/admin/ManageTeachers';
 import ManageSubjects from './pages/admin/ManageSubjects';
 import { TeacherDashboard } from './pages/teacher/TeacherDashboard';
 import AttendanceMarking from './pages/teacher/AttendanceMarking';
+import AttendanceStore from './pages/teacher/AttendanceStore';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { useAuth } from './context/AuthContext';
 
@@ -61,6 +62,11 @@ function App() {
       <Route path="/teacher/attendance" element={
         <PrivateRoute roles={['teacher']}>
           <AttendanceMarking />
+        </PrivateRoute>
+      } />
+      <Route path="/teacher/store" element={
+        <PrivateRoute roles={['teacher']}>
+          <AttendanceStore />
         </PrivateRoute>
       } />
       <Route path="/teacher/subjects" element={

@@ -3,6 +3,8 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
@@ -12,48 +14,46 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (token) {
-            // Validate token or just set state (Assuming valid for simplicity initially, or verify)
-            // Ideally: fetch profile
-            fetchProfile(token);
+            axios.get(`${API_BASE_URL}/api/auth/profile`, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+                .then(res => setUser(res.data))
+                .catch(err => {
+                    console.error('Auth Error', err);
+                    localStorage.removeItem('token');
+                })
+                .finally(() => setLoading(false));
         } else {
             setLoading(false);
         }
     }, []);
 
-    const fetchProfile = async (token) => {
-        try {
-            const config = {
-                headers: { Authorization: `Bearer ${token}` }
-            };
-            // Assuming proxy is set up or hardcode localhost
-            const res = await axios.get('http://localhost:5000/api/auth/profile', config);
-            setUser({ ...res.data, token }); // Keep token in user obj if needed, or just LS
-            setLoading(false);
-        } catch (error) {
-            console.error("Auth Error", error);
-            localStorage.removeItem('token');
-            setLoading(false);
-        }
-    };
-
-    const login = async (email, password, role) => { // Role might be inferred or passed
-        const res = await axios.post('http://localhost:5000/api/auth/login', {
-            email: role !== 'student' ? email : undefined,
-            enrollmentNumber: role === 'student' ? email : undefined, // Reuse email field arg as ID for student
+    const login = async (email, password, role) => {
+        const loginData = {
             password,
             role
-        });
-        localStorage.setItem('token', res.data.token);
-        setUser(res.data);
-        return res.data;
-    };
+        };
 
-    const register = async (userData) => {
-        const res = await axios.post('http://localhost:5000/api/auth/register', userData);
+        // For students, send enrollmentNumber; for admin/teacher, send email
+        if (role === 'student') {
+            loginData.enrollmentNumber = email;
+        } else {
+            loginData.email = email;
+        }
+
+        const res = await axios.post(`${API_BASE_URL}/api/auth/login`, loginData);
         if (res.data.token) {
             localStorage.setItem('token', res.data.token);
             setUser(res.data);
         }
+        return res.data;
+    };
+
+    const register = async (userData) => {
+        const res = await axios.post(`${API_BASE_URL}/api/auth/register`, userData);
+        localStorage.setItem('token', res.data.token);
+        setUser(res.data);
+        return res.data;
     };
 
     const logout = () => {
@@ -62,8 +62,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, register, loading }}>
-            {!loading && children}
+        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+            {children}
         </AuthContext.Provider>
     );
 };

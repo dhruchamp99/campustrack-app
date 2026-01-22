@@ -5,7 +5,8 @@ const {
     markAttendance,
     getSubjectAttendance,
     getStudentAttendance,
-    getAttendanceReport
+    getAttendanceReport,
+    getTeacherSubmittedAttendance
 } = require('../controllers/attendanceController');
 
 router.use(protect);
@@ -19,6 +20,9 @@ router.get('/subject/:subjectId', authorize('teacher', 'admin'), getSubjectAtten
 // View student attendance - Student (own), Admin, Teacher (maybe)
 // The controller checks if student is accessing their own data.
 router.get('/student/:studentId', getStudentAttendance);
+
+// Get teacher's submitted attendance records - Teachers only
+router.get('/teacher/submitted', authorize('teacher'), getTeacherSubmittedAttendance);
 
 router.get('/report', authorize('admin'), getAttendanceReport);
 
