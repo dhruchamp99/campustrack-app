@@ -187,10 +187,54 @@ const getTeacherSubmittedAttendance = async (req, res) => {
     }
 };
 
+// @desc    Delete Attendance Record (for a specific subject and date)
+// @route   DELETE /api/attendance/delete
+// @access  Private (Teacher)
+const deleteAttendanceRecord = async (req, res) => {
+    try {
+        const { subjectId, date } = req.body;
+        const teacherId = req.user.id;
+
+        if (!subjectId || !date) {
+            return res.status(400).json({ message: 'Subject ID and date are required' });
+        }
+
+        // Parse the date to match the format in database
+        const attendanceDate = new Date(date);
+        attendanceDate.setUTCHours(0, 0, 0, 0);
+
+        // Find all attendance records for this subject, date, and teacher
+        const records = await Attendance.find({
+            subjectId: subjectId,
+            date: attendanceDate,
+            markedBy: teacherId
+        });
+
+        if (records.length === 0) {
+            return res.status(404).json({ message: 'No attendance records found for this date and subject' });
+        }
+
+        // Delete all attendance records for this subject and date
+        const result = await Attendance.deleteMany({
+            subjectId: subjectId,
+            date: attendanceDate,
+            markedBy: teacherId
+        });
+
+        res.status(200).json({
+            message: 'Attendance records deleted successfully',
+            deletedCount: result.deletedCount
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     markAttendance,
     getSubjectAttendance,
     getStudentAttendance,
     getAttendanceReport,
-    getTeacherSubmittedAttendance
+    getTeacherSubmittedAttendance,
+    deleteAttendanceRecord
 };

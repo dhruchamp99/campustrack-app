@@ -6,7 +6,8 @@ const {
     getSubjectAttendance,
     getStudentAttendance,
     getAttendanceReport,
-    getTeacherSubmittedAttendance
+    getTeacherSubmittedAttendance,
+    deleteAttendanceRecord
 } = require('../controllers/attendanceController');
 
 router.use(protect);
@@ -23,6 +24,9 @@ router.get('/student/:studentId', getStudentAttendance);
 
 // Get teacher's submitted attendance records - Teachers only
 router.get('/teacher/submitted', authorize('teacher'), getTeacherSubmittedAttendance);
+
+// Delete attendance record - Teachers only
+router.delete('/delete', authorize('teacher'), deleteAttendanceRecord);
 
 router.get('/report', authorize('admin'), getAttendanceReport);
 

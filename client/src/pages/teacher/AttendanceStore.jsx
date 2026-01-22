@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import axios from 'axios';
 import { toast, Toaster } from 'react-hot-toast';
-import { Download, Calendar, BookOpen, Users, FileText } from 'lucide-react';
+import { Download, Calendar, BookOpen, Users, FileText, Trash2 } from 'lucide-react';
 import API_BASE_URL from '../../config/apiConfig';
 
 const AttendanceStore = () => {
@@ -114,6 +114,41 @@ const AttendanceStore = () => {
         toast.success('Attendance downloaded successfully!');
     };
 
+    const deleteAttendanceRecord = async (record) => {
+        const { subject, date } = record;
+
+        // Confirm before deleting
+        const confirmDelete = window.confirm(
+            `Are you sure you want to delete attendance for:\n\n` +
+            `Subject: ${subject.subjectName} (${subject.subjectCode})\n` +
+            `Date: ${formatDate(date)}\n` +
+            `Students: ${record.students.length}\n\n` +
+            `This action cannot be undone!`
+        );
+
+        if (!confirmDelete) {
+            return;
+        }
+
+        try {
+            await axios.delete(`${API_BASE_URL}/api/attendance/delete`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                data: {
+                    subjectId: subject._id,
+                    date: date
+                }
+            });
+
+            toast.success('Attendance record deleted successfully!');
+
+            // Refresh the list
+            fetchSubmittedAttendance();
+        } catch (error) {
+            console.error('Error deleting attendance:', error);
+            toast.error(error.response?.data?.message || 'Failed to delete attendance record');
+        }
+    };
+
     const getAttendanceStats = (students) => {
         const present = students.filter(s => s.status === 'present').length;
         const absent = students.filter(s => s.status === 'absent').length;
@@ -208,6 +243,15 @@ const AttendanceStore = () => {
                                                 >
                                                     <Download className="w-4 h-4" />
                                                     JSON
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    onClick={() => deleteAttendanceRecord(record)}
+                                                    className="gap-2"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Delete
                                                 </Button>
                                                 <Button
                                                     size="sm"
