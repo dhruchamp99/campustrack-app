@@ -8,8 +8,8 @@ All user passwords have been reset to ensure login works correctly.
 
 ## 👨‍💼 **ADMIN LOGIN**
 
-**Email:** `dhru@admin.com`  
-**Password:** `admin@123`  
+**Email:** `admin@campustrack.com`  
+**Password:** `admin123`  
 **Tab:** Select **"admin"**
 
 **Access:**
@@ -80,8 +80,8 @@ All user passwords have been reset to ensure login works correctly.
 ### **For Admin:**
 1. Go to http://localhost:5173/login
 2. Click **"admin"** tab
-3. Enter email: `dhru@admin.com`
-4. Enter password: `admin@123`
+3. Enter email: `admin@campustrack.com`
+4. Enter password: `admin123`
 5. Click **"Login"**
 6. ✅ Should redirect to admin dashboard
 
@@ -130,8 +130,8 @@ Expected: Redirect to /teacher/attendance
 
 ### **Test Admin Login:**
 ```
-Email: dhru@admin.com
-Password: admin@123
+Email: admin@campustrack.com
+Password: admin123
 Expected: Redirect to /dashboard (admin view)
 ```
 
@@ -150,7 +150,7 @@ node -e "const mongoose = require('mongoose'); const User = require('./src/model
 ### **Reset Admin:**
 ```bash
 cd server
-node -e "const mongoose = require('mongoose'); const User = require('./src/models/User'); mongoose.connect('mongodb://localhost:27017/campustrack').then(async () => { const admin = await User.findOne({email: 'dhru@admin.com'}); admin.password = 'admin@123'; await admin.save(); console.log('Done'); process.exit(); });"
+node -e "const mongoose = require('mongoose'); const User = require('./src/models/User'); mongoose.connect('mongodb://localhost:27017/campustrack').then(async () => { const admin = await User.findOne({email: 'admin@campustrack.com'}); admin.password = 'admin123'; await admin.save(); console.log('Done'); process.exit(); });"
 ```
 
 ### **Reset Teacher:**
@@ -177,7 +177,7 @@ node -e "const mongoose = require('mongoose'); const User = require('./src/model
 
 | Role | Username/Email | Password | Tab |
 |------|---------------|----------|-----|
-| Admin | dhru@admin.com | admin@123 | admin |
+| Admin | admin@campustrack.com | admin123 | admin |
 | Teacher | teacher@campustrack.com | teacher123 | teacher |
 | Student | CS101 (or any from list) | student123 | student |
 
