@@ -29,11 +29,20 @@ const getStudentsForSubject = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized for this subject' });
         }
 
+        // DEBUG: Log the query parameters
+        console.log('=== FETCHING STUDENTS ===');
+        console.log('Subject:', subject.subjectName);
+        console.log('Department:', subject.department, '(type:', typeof subject.department + ')');
+        console.log('Semester:', subject.semester, '(type:', typeof subject.semester + ')');
+
         const students = await require('../models/User').find({
             role: 'student',
             department: subject.department,
             semester: subject.semester
         }).select('-password').sort({ enrollmentNumber: 1 }); // Sort by enrollment number ascending
+
+        console.log('Students found:', students.length);
+        console.log('========================');
 
         res.json(students);
     } catch (error) {
