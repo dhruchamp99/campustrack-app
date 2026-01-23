@@ -29,23 +29,36 @@ const getStudentsForSubject = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized for this subject' });
         }
 
-        // DEBUG: Log the query parameters
+        // FIX: Convert semester to number to handle both string and number types
+        const semesterNumber = parseInt(subject.semester);
+
+        // FIX: Trim department to remove any extra whitespace
+        const departmentTrimmed = subject.department ? subject.department.trim() : subject.department;
+
         console.log('=== FETCHING STUDENTS ===');
         console.log('Subject:', subject.subjectName);
-        console.log('Department:', subject.department, '(type:', typeof subject.department + ')');
-        console.log('Semester:', subject.semester, '(type:', typeof subject.semester + ')');
+        console.log('Department (original):', subject.department);
+        console.log('Department (trimmed):', departmentTrimmed);
+        console.log('Semester (original):', subject.semester, 'type:', typeof subject.semester);
+        console.log('Semester (converted):', semesterNumber, 'type:', typeof semesterNumber);
 
+        // Try to find students with flexible matching
         const students = await require('../models/User').find({
             role: 'student',
-            department: subject.department,
-            semester: subject.semester
-        }).select('-password').sort({ enrollmentNumber: 1 }); // Sort by enrollment number ascending
+            department: departmentTrimmed,
+            $or: [
+                { semester: subject.semester },      // Try original value
+                { semester: semesterNumber },        // Try as number
+                { semester: String(subject.semester) } // Try as string
+            ]
+        }).select('-password').sort({ enrollmentNumber: 1 });
 
         console.log('Students found:', students.length);
         console.log('========================');
 
         res.json(students);
     } catch (error) {
+        console.error('Error in getStudentsForSubject:', error);
         res.status(500).json({ message: error.message });
     }
 };
