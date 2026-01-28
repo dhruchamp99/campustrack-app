@@ -220,12 +220,18 @@ const ManageStudents = () => {
                     // If enrollment number is too short (less than 10 digits), it might need padding
                     // But we'll keep it as-is since the format might vary
 
+                    // Get semester and extract just the number
+                    let semesterValue = getColumnValue(row, 'Semester', 'semester', 'Sem', 'sem', 'SEM');
+                    // Extract just the number from formats like "Sem 4" or "Semester 4" or "4"
+                    const semesterMatch = String(semesterValue).match(/\d+/);
+                    const semester = semesterMatch ? semesterMatch[0] : '';
+
                     return {
                         name: getColumnValue(row, 'Student Name', 'Name', 'name', 'STUDENT NAME'),
                         enrollmentNumber: enrollmentNum,
                         email: getColumnValue(row, 'Email', 'email', 'E-mail', 'EMAIL'),
                         department: getColumnValue(row, 'Department', 'department', 'Branch', 'branch', 'BRANCH', 'DEPARTMENT'),
-                        semester: String(getColumnValue(row, 'Semester', 'semester', 'Sem', 'sem', 'SEM')),
+                        semester: semester,
                         password: getColumnValue(row, 'Password', 'password', 'PASSWORD')
                     };
                 });
