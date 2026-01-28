@@ -19,9 +19,10 @@ const {
 router.use(protect);
 router.use(authorize('admin'));
 
+// Import route must come BEFORE general students routes
+router.post('/students/import', importStudents);
 router.get('/students', getAllStudents);
 router.post('/students', addStudent);
-router.post('/students/import', importStudents);
 router.put('/users/:id', updateUser); // Update student/teacher
 router.delete('/users/:id', deleteUser); // Generic delete for student/teacher
 
