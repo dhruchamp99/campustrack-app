@@ -66,6 +66,85 @@ const addStudent = async (req, res) => {
     }
 };
 
+// @desc    Import students from Excel
+// @route   POST /api/admin/students/import
+// @access  Private (Admin)
+const importStudents = async (req, res) => {
+    try {
+        const { students } = req.body;
+
+        if (!students || !Array.isArray(students) || students.length === 0) {
+            return res.status(400).json({ message: 'No students data provided' });
+        }
+
+        const results = {
+            success: [],
+            failed: [],
+            skipped: []
+        };
+
+        for (const studentData of students) {
+            try {
+                // Validate required fields
+                if (!studentData.enrollmentNumber || !studentData.name || !studentData.department || !studentData.semester) {
+                    results.failed.push({
+                        data: studentData,
+                        reason: 'Missing required fields (enrollmentNumber, name, department, or semester)'
+                    });
+                    continue;
+                }
+
+                // Check if student already exists
+                const existingStudent = await User.findOne({ enrollmentNumber: studentData.enrollmentNumber });
+                if (existingStudent) {
+                    results.skipped.push({
+                        enrollmentNumber: studentData.enrollmentNumber,
+                        name: studentData.name,
+                        reason: 'Student already exists'
+                    });
+                    continue;
+                }
+
+                // Create student with default password if not provided
+                const password = studentData.password || studentData.enrollmentNumber;
+
+                const newStudent = await User.create({
+                    name: studentData.name,
+                    email: studentData.email || '',
+                    enrollmentNumber: studentData.enrollmentNumber,
+                    password: password,
+                    department: studentData.department,
+                    semester: String(studentData.semester),
+                    role: 'student'
+                });
+
+                results.success.push({
+                    enrollmentNumber: newStudent.enrollmentNumber,
+                    name: newStudent.name
+                });
+            } catch (error) {
+                results.failed.push({
+                    data: studentData,
+                    reason: error.message
+                });
+            }
+        }
+
+        res.status(200).json({
+            message: 'Import completed',
+            summary: {
+                total: students.length,
+                success: results.success.length,
+                failed: results.failed.length,
+                skipped: results.skipped.length
+            },
+            results
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // Update User
 const updateUser = async (req, res) => {
     try {
@@ -179,6 +258,7 @@ module.exports = {
     getAllTeachers,
     addTeacher,
     addStudent,
+    importStudents,
     updateUser,
     deleteUser,
     createSubject,

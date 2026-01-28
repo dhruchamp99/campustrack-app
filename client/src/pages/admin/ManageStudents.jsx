@@ -5,10 +5,11 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import axios from 'axios';
-import { Plus, Trash2, Search, GraduationCap } from 'lucide-react';
+import { Plus, Trash2, Search, GraduationCap, Upload, FileSpreadsheet, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import API_BASE_URL from '../../config/apiConfig';
+import * as XLSX from 'xlsx';
 
 const ManageStudents = () => {
     const [students, setStudents] = useState([]);
@@ -16,6 +17,9 @@ const ManageStudents = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingStudent, setEditingStudent] = useState(null);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importing, setImporting] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -150,6 +154,101 @@ const ManageStudents = () => {
         });
     };
 
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            const validTypes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+            if (!validTypes.includes(file.type) && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                toast.error('Please select a valid Excel file (.xlsx or .xls)');
+                return;
+            }
+            setImportFile(file);
+        }
+    };
+
+    const handleImportExcel = async () => {
+        if (!importFile) {
+            toast.error('Please select a file first');
+            return;
+        }
+
+        setImporting(true);
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                if (jsonData.length === 0) {
+                    toast.error('The Excel file is empty');
+                    setImporting(false);
+                    return;
+                }
+
+                // Map Excel columns to our format
+                const students = jsonData.map(row => ({
+                    name: row.Name || row.name || '',
+                    enrollmentNumber: String(row['Enrollment Number'] || row.enrollmentNumber || row.enrollment || ''),
+                    email: row.Email || row.email || '',
+                    department: row.Department || row.department || row.Branch || row.branch || '',
+                    semester: String(row.Semester || row.semester || row.Sem || row.sem || ''),
+                    password: row.Password || row.password || ''
+                }));
+
+                console.log('Parsed students:', students);
+
+                // Send to backend
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/admin/students/import`,
+                    { students },
+                    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                );
+
+                const { summary, results } = response.data;
+
+                // Show detailed results
+                if (summary.success > 0) {
+                    toast.success(
+                        `✅ Successfully imported ${summary.success} student(s)!`,
+                        { duration: 5000 }
+                    );
+                }
+
+                if (summary.skipped > 0) {
+                    toast(
+                        `⚠️ Skipped ${summary.skipped} student(s) (already exist)`,
+                        { duration: 5000, icon: '⚠️' }
+                    );
+                }
+
+                if (summary.failed > 0) {
+                    toast.error(
+                        `❌ Failed to import ${summary.failed} student(s). Check console for details.`,
+                        { duration: 5000 }
+                    );
+                    console.error('Failed imports:', results.failed);
+                }
+
+                // Close modal and refresh
+                setShowImportModal(false);
+                setImportFile(null);
+                fetchStudents();
+            } catch (error) {
+                console.error('Import error:', error);
+                toast.error(error.response?.data?.message || 'Failed to import students');
+            } finally {
+                setImporting(false);
+            }
+        };
+
+        reader.readAsArrayBuffer(importFile);
+    };
+
     const filteredStudents = students.filter(s =>
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.enrollmentNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -169,10 +268,20 @@ const ManageStudents = () => {
                         </h2>
                         <p className="text-muted-foreground mt-1">Add, view, and manage student records</p>
                     </div>
-                    <Button onClick={() => setShowAddForm(!showAddForm)} className="gap-2">
-                        <Plus className="w-4 h-4" />
-                        Add New Student
-                    </Button>
+                    <div className="flex gap-2 flex-wrap">
+                        <Button
+                            onClick={() => setShowImportModal(true)}
+                            variant="outline"
+                            className="gap-2"
+                        >
+                            <Upload className="w-4 h-4" />
+                            Import Students
+                        </Button>
+                        <Button onClick={() => setShowAddForm(!showAddForm)} className="gap-2">
+                            <Plus className="w-4 h-4" />
+                            Add New Student
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Search Bar */}
@@ -294,6 +403,141 @@ const ManageStudents = () => {
                                         </Button>
                                     </div>
                                 </form>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
+
+                {/* Import Students Modal */}
+                {showImportModal && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                        onClick={() => !importing && setShowImportModal(false)}
+                    >
+                        <Card
+                            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <FileSpreadsheet className="w-6 h-6 text-primary" />
+                                        <CardTitle>Import Students from Excel</CardTitle>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowImportModal(false)}
+                                        disabled={importing}
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                                <CardDescription>
+                                    Upload an Excel file (.xlsx or .xls) with student information
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* Instructions */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <h4 className="font-semibold text-blue-900 mb-2">📋 Excel Format Requirements:</h4>
+                                    <ul className="text-sm text-blue-800 space-y-1 ml-4 list-disc">
+                                        <li><strong>Name</strong> - Student's full name (Required)</li>
+                                        <li><strong>Enrollment Number</strong> - Unique enrollment number (Required)</li>
+                                        <li><strong>Department</strong> or <strong>Branch</strong> - e.g., Computer Science (Required)</li>
+                                        <li><strong>Semester</strong> or <strong>Sem</strong> - e.g., 1, 2, 3... (Required)</li>
+                                        <li><strong>Email</strong> - Student email (Optional)</li>
+                                        <li><strong>Password</strong> - If not provided, enrollment number will be used (Optional)</li>
+                                    </ul>
+                                </div>
+
+                                {/* Sample Template */}
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                    <h4 className="font-semibold text-gray-900 mb-2">📝 Sample Excel Template:</h4>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead>
+                                                <tr className="bg-gray-200">
+                                                    <th className="border border-gray-300 px-2 py-1">Name</th>
+                                                    <th className="border border-gray-300 px-2 py-1">Enrollment Number</th>
+                                                    <th className="border border-gray-300 px-2 py-1">Department</th>
+                                                    <th className="border border-gray-300 px-2 py-1">Semester</th>
+                                                    <th className="border border-gray-300 px-2 py-1">Email</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td className="border border-gray-300 px-2 py-1">John Doe</td>
+                                                    <td className="border border-gray-300 px-2 py-1">2024001</td>
+                                                    <td className="border border-gray-300 px-2 py-1">Computer Science</td>
+                                                    <td className="border border-gray-300 px-2 py-1">4</td>
+                                                    <td className="border border-gray-300 px-2 py-1">john@example.com</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="border border-gray-300 px-2 py-1">Jane Smith</td>
+                                                    <td className="border border-gray-300 px-2 py-1">2024002</td>
+                                                    <td className="border border-gray-300 px-2 py-1">Information Technology</td>
+                                                    <td className="border border-gray-300 px-2 py-1">4</td>
+                                                    <td className="border border-gray-300 px-2 py-1">jane@example.com</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* File Upload */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="excel-file">Select Excel File</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            id="excel-file"
+                                            type="file"
+                                            accept=".xlsx,.xls"
+                                            onChange={handleFileSelect}
+                                            disabled={importing}
+                                            className="flex-1"
+                                        />
+                                    </div>
+                                    {importFile && (
+                                        <p className="text-sm text-green-600 flex items-center gap-1">
+                                            ✓ Selected: {importFile.name}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-3 justify-end pt-4">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setShowImportModal(false);
+                                            setImportFile(null);
+                                        }}
+                                        disabled={importing}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleImportExcel}
+                                        disabled={!importFile || importing}
+                                        className="gap-2"
+                                    >
+                                        {importing ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                Importing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload className="w-4 h-4" />
+                                                Import Students
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
                     </motion.div>

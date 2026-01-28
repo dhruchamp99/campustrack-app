@@ -6,6 +6,7 @@ const {
     getAllTeachers,
     addTeacher,
     addStudent,
+    importStudents,
     updateUser,
     deleteUser,
     createSubject,
@@ -20,6 +21,7 @@ router.use(authorize('admin'));
 
 router.get('/students', getAllStudents);
 router.post('/students', addStudent);
+router.post('/students/import', importStudents);
 router.put('/users/:id', updateUser); // Update student/teacher
 router.delete('/users/:id', deleteUser); // Generic delete for student/teacher
 
