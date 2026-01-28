@@ -449,7 +449,7 @@ const ManageStudents = () => {
                                         <li><strong>Department</strong> or <strong>Branch</strong> - e.g., Computer Science (Required)</li>
                                         <li><strong>Semester</strong> or <strong>Sem</strong> - e.g., 1, 2, 3... (Required)</li>
                                         <li><strong>Email</strong> - Student email (Optional)</li>
-                                        <li><strong>Password</strong> - If not provided, enrollment number will be used (Optional)</li>
+                                        <li><strong>Password</strong> - If not provided, default password "123" will be used (Optional)</li>
                                     </ul>
                                 </div>
 

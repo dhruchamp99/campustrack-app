@@ -24,7 +24,7 @@ You can use these alternative names:
 | Column Name | Example | Default if Empty |
 |-------------|---------|------------------|
 | Email | john@example.com | Empty string |
-| Password | mypass123 | Enrollment Number |
+| Password | mypass123 | "123" |
 
 ## 🎯 Valid Departments
 

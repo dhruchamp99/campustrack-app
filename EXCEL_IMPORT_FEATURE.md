@@ -20,7 +20,7 @@ Your Excel file should have the following columns (case-insensitive):
 
 #### Optional Columns:
 - **Email** - Student's email address
-- **Password** - Custom password (if not provided, enrollment number will be used as password)
+- **Password** - Custom password (if not provided, default password "123" will be used)
 
 ### 3. Sample Excel Format
 
@@ -56,7 +56,7 @@ The system automatically recognizes multiple column name variations:
 - No duplicate entries will be created
 
 ### 🔑 Default Passwords
-- If no password is provided in the Excel file, the enrollment number is used as the default password
+- If no password is provided in the Excel file, the default password **"123"** is used
 - Students can change their password after first login
 
 ### 📊 Validation

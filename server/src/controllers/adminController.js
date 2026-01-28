@@ -106,7 +106,7 @@ const importStudents = async (req, res) => {
                 }
 
                 // Create student with default password if not provided
-                const password = studentData.password || studentData.enrollmentNumber;
+                const password = studentData.password || '123';
 
                 const newStudent = await User.create({
                     name: studentData.name,
