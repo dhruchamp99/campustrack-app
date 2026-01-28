@@ -110,7 +110,7 @@ const importStudents = async (req, res) => {
 
                 const newStudent = await User.create({
                     name: studentData.name,
-                    email: studentData.email || '',
+                    email: studentData.email || null,
                     enrollmentNumber: studentData.enrollmentNumber,
                     password: password,
                     department: studentData.department,

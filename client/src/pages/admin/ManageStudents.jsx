@@ -206,12 +206,16 @@ const ManageStudents = () => {
                     return '';
                 };
 
+                console.log('Raw Excel Data (First Row):', jsonData[0]);
+                console.log('Available Columns:', Object.keys(jsonData[0] || {}));
+
                 // Map Excel columns to our format
                 const students = jsonData.map(row => {
                     // Get enrollment number and clean it
                     let enrollmentNum = getColumnValue(row,
                         'Enrollment Number', 'enrollment Number', 'enrollmentNumber',
-                        'enrollment', 'Enrollment', 'Enrolment Number'
+                        'enrollment', 'Enrollment', 'Enrolment Number',
+                        'Enrollment No', 'enrollment no', 'Enrollment no', 'Enrolment No'
                     );
 
                     // Convert to string and remove any spaces or special characters
