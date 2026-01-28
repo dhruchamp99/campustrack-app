@@ -182,7 +182,8 @@ const ManageStudents = () => {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                // Read with raw:true to preserve numbers and avoid scientific notation
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: true, defval: '' });
 
                 if (jsonData.length === 0) {
                     toast.error('The Excel file is empty');
@@ -190,15 +191,44 @@ const ManageStudents = () => {
                     return;
                 }
 
+                // Helper function to find column value (case-insensitive)
+                const getColumnValue = (row, ...possibleNames) => {
+                    for (const name of possibleNames) {
+                        // Try exact match first
+                        if (row[name]) return row[name];
+
+                        // Try case-insensitive match
+                        const key = Object.keys(row).find(k =>
+                            k.toLowerCase().trim() === name.toLowerCase().trim()
+                        );
+                        if (key && row[key]) return row[key];
+                    }
+                    return '';
+                };
+
                 // Map Excel columns to our format
-                const students = jsonData.map(row => ({
-                    name: row.Name || row.name || '',
-                    enrollmentNumber: String(row['Enrollment Number'] || row.enrollmentNumber || row.enrollment || ''),
-                    email: row.Email || row.email || '',
-                    department: row.Department || row.department || row.Branch || row.branch || '',
-                    semester: String(row.Semester || row.semester || row.Sem || row.sem || ''),
-                    password: row.Password || row.password || ''
-                }));
+                const students = jsonData.map(row => {
+                    // Get enrollment number and clean it
+                    let enrollmentNum = getColumnValue(row,
+                        'Enrollment Number', 'enrollment Number', 'enrollmentNumber',
+                        'enrollment', 'Enrollment', 'Enrolment Number'
+                    );
+
+                    // Convert to string and remove any spaces or special characters
+                    enrollmentNum = String(enrollmentNum).replace(/[^\d]/g, '');
+
+                    // If enrollment number is too short (less than 10 digits), it might need padding
+                    // But we'll keep it as-is since the format might vary
+
+                    return {
+                        name: getColumnValue(row, 'Student Name', 'Name', 'name', 'STUDENT NAME'),
+                        enrollmentNumber: enrollmentNum,
+                        email: getColumnValue(row, 'Email', 'email', 'E-mail', 'EMAIL'),
+                        department: getColumnValue(row, 'Department', 'department', 'Branch', 'branch', 'BRANCH', 'DEPARTMENT'),
+                        semester: String(getColumnValue(row, 'Semester', 'semester', 'Sem', 'sem', 'SEM')),
+                        password: getColumnValue(row, 'Password', 'password', 'PASSWORD')
+                    };
+                });
 
                 console.log('Parsed students:', students);
 
