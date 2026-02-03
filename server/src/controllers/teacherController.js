@@ -1,4 +1,6 @@
 const Subject = require('../models/Subject');
+const User = require('../models/User');
+const Attendance = require('../models/Attendance');
 
 // @desc    Get subjects assigned to teacher
 // @route   GET /api/teacher/subjects
@@ -8,6 +10,7 @@ const getAssignedSubjects = async (req, res) => {
         const subjects = await Subject.find({ teacherId: req.user.id });
         res.json(subjects);
     } catch (error) {
+        console.error('getAssignedSubjects Error:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -88,8 +91,9 @@ const getStudentsForSubject = async (req, res) => {
         console.log('Sems:', targetSemesters);
         console.log('Effective Batches:', effectiveAllowedBatches);
 
+
         // Try to find students with flexible matching
-        const students = await require('../models/User').find({
+        const students = await User.find({
             role: 'student',
             department: { $in: targetDepartments },
             semester: { $in: targetSemestersMixed },
@@ -112,7 +116,6 @@ const getStudentsForSubject = async (req, res) => {
 const getSubjectAttendanceReport = async (req, res) => {
     try {
         const { subjectId } = req.params;
-        const Subject = require('../models/Subject');
         const subject = await Subject.findById(subjectId);
 
         if (!subject) {
@@ -141,7 +144,7 @@ const getSubjectAttendanceReport = async (req, res) => {
             batchQuery = { batch: { $in: subject.allowedBatches } };
         }
 
-        const students = await require('../models/User').find({
+        const students = await User.find({
             role: 'student',
             department: { $in: targetDepartments },
             semester: { $in: targetSemestersMixed },
@@ -149,7 +152,7 @@ const getSubjectAttendanceReport = async (req, res) => {
         }).select('name enrollmentNumber batch').sort({ enrollmentNumber: 1 });
 
         // 2. Fetch Attendance Stats for this Subject
-        const attendanceStats = await require('../models/Attendance').aggregate([
+        const attendanceStats = await Attendance.aggregate([
             { $match: { subjectId: subject._id } },
             {
                 $group: {
