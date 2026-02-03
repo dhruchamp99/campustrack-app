@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import axios from 'axios';
-import { Plus, Trash2, Search, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Search, BookOpen, Edit } from 'lucide-react';
 import { motion } from 'framer-motion';
 import API_BASE_URL from '../../config/apiConfig';
 
@@ -15,6 +15,7 @@ const ManageSubjects = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
+    const [editingSubject, setEditingSubject] = useState(null);
     const [formData, setFormData] = useState({
         subjectName: '',
         subjectCode: '',
@@ -86,6 +87,69 @@ const ManageSubjects = () => {
         }
     };
 
+    const handleEdit = (subject) => {
+        setEditingSubject(subject);
+        setFormData({
+            subjectName: subject.subjectName,
+            subjectCode: subject.subjectCode,
+            teacherId: subject.teacherId?._id || '',
+            departments: subject.departments ? subject.departments.join(', ') : subject.department,
+            semesters: subject.semesters ? subject.semesters.join(', ') : subject.semester,
+            subjectType: subject.subjectType || 'Theory',
+            allowedBatches: subject.allowedBatches ? subject.allowedBatches.join(', ') : ''
+        });
+        setShowAddForm(true);
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        try {
+            const departmentsArray = formData.departments.split(',').map(s => s.trim()).filter(s => s);
+            const semestersArray = formData.semesters.split(',').map(s => s.trim()).filter(s => s);
+            const allowedBatchesArray = formData.allowedBatches ? formData.allowedBatches.split(',').map(s => s.trim()).filter(s => s) : [];
+
+            const payload = {
+                ...formData,
+                departments: departmentsArray,
+                semesters: semestersArray,
+                allowedBatches: allowedBatchesArray,
+                department: departmentsArray[0],
+                semester: semestersArray[0]
+            };
+
+            await axios.put(`${API_BASE_URL}/api/admin/subjects/${editingSubject._id}`, payload, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            alert('Subject updated successfully!');
+            handleCancelEdit();
+            fetchSubjects();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to update subject');
+        }
+    };
+
+    const handleDelete = async (subjectId) => {
+        if (!window.confirm('Are you sure you want to delete this subject?')) return;
+        try {
+            await axios.delete(`${API_BASE_URL}/api/admin/subjects/${subjectId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            alert('Subject deleted successfully!');
+            fetchSubjects();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to delete subject');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setShowAddForm(false);
+        setEditingSubject(null);
+        setFormData({
+            subjectName: '', subjectCode: '', teacherId: '',
+            departments: '', semesters: '', subjectType: 'Theory', allowedBatches: ''
+        });
+    };
+
     const filteredSubjects = subjects.filter(s =>
         s.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -103,7 +167,14 @@ const ManageSubjects = () => {
                         </h2>
                         <p className="text-muted-foreground mt-1">Add, view, and manage course subjects</p>
                     </div>
-                    <Button onClick={() => setShowAddForm(!showAddForm)} className="gap-2">
+                    <Button onClick={() => {
+                        setShowAddForm(!showAddForm);
+                        setEditingSubject(null);
+                        setFormData({
+                            subjectName: '', subjectCode: '', teacherId: '',
+                            departments: '', semesters: '', subjectType: 'Theory', allowedBatches: ''
+                        });
+                    }} className="gap-2">
                         <Plus className="w-4 h-4" />
                         Add New Subject
                     </Button>
@@ -130,11 +201,11 @@ const ManageSubjects = () => {
                     >
                         <Card className="border-primary/50 shadow-lg">
                             <CardHeader>
-                                <CardTitle>Add New Subject</CardTitle>
-                                <CardDescription>Fill in the details to create a new subject</CardDescription>
+                                <CardTitle>{editingSubject ? 'Edit Subject' : 'Add New Subject'}</CardTitle>
+                                <CardDescription>{editingSubject ? 'Update subject details' : 'Fill in the details to create a new subject'}</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={handleAddSubject} className="grid gap-4 md:grid-cols-2">
+                                <form onSubmit={editingSubject ? handleUpdate : handleAddSubject} className="grid gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label htmlFor="subjectName">Subject Name *</Label>
                                         <Input
@@ -221,10 +292,10 @@ const ManageSubjects = () => {
                                     )}
 
                                     <div className="md:col-span-2 flex gap-3 justify-end">
-                                        <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
+                                        <Button type="button" variant="outline" onClick={handleCancelEdit}>
                                             Cancel
                                         </Button>
-                                        <Button type="submit">Add Subject</Button>
+                                        <Button type="submit">{editingSubject ? 'Update Subject' : 'Add Subject'}</Button>
                                     </div>
                                 </form>
                             </CardContent>
@@ -246,6 +317,7 @@ const ManageSubjects = () => {
                                         <th className="px-4 py-3 text-left font-medium">Teacher</th>
                                         <th className="px-4 py-3 text-left font-medium">Department</th>
                                         <th className="px-4 py-3 text-left font-medium">Semester</th>
+                                        <th className="px-4 py-3 text-right font-medium">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -277,6 +349,26 @@ const ManageSubjects = () => {
                                                         ? `${subject.semesters.length} Sems`
                                                         : subject.semesters?.[0] || subject.semester
                                                     }
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex gap-2 justify-end">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-primary hover:text-primary hover:bg-primary/10"
+                                                            onClick={() => handleEdit(subject)}
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={() => handleDelete(subject._id)}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
