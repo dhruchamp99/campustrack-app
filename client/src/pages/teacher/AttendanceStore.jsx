@@ -7,6 +7,12 @@ import { toast, Toaster } from 'react-hot-toast';
 import { Download, Calendar, BookOpen, Users, FileText, Trash2 } from 'lucide-react';
 import API_BASE_URL from '../../config/apiConfig';
 
+import ExcelJS from 'exceljs';
+
+
+
+
+
 const AttendanceStore = () => {
     const [attendanceRecords, setAttendanceRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -78,7 +84,58 @@ const AttendanceStore = () => {
         link.click();
         document.body.removeChild(link);
 
-        toast.success('Attendance downloaded successfully!');
+        toast.success('Attendance downloaded as CSV successfully!');
+    };
+
+    const downloadAsExcel = async (record) => {
+        const { subject, date, students } = record;
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Attendance');
+
+        // Add Header Info
+        worksheet.addRow(['Attendance Report']);
+        worksheet.addRow([`Subject: ${subject.subjectName} (${subject.subjectCode})`]);
+        worksheet.addRow([`Department: ${subject.department}`]);
+        worksheet.addRow([`Semester: ${subject.semester}`]);
+        worksheet.addRow([`Date: ${formatDate(date)}`]);
+        worksheet.addRow([]); // Empty row
+
+        // Table Header
+        const headerRow = worksheet.addRow(['Enrollment Number', 'Student Name', 'Status']);
+        headerRow.font = { bold: true };
+
+        // Set column widths
+        worksheet.getColumn(1).width = 25;
+        worksheet.getColumn(2).width = 30;
+        worksheet.getColumn(3).width = 15;
+
+        // Data Rows
+        students.forEach(student => {
+            const row = worksheet.addRow([
+                student.enrollmentNumber,
+                student.name,
+                student.status.toUpperCase()
+            ]);
+
+            // Highlight absent student names in red
+            if (student.status === 'absent') {
+                row.getCell(2).font = { color: { argb: 'FFFF0000' } }; // column 2 is Name
+                row.getCell(3).font = { color: { argb: 'FFFF0000' } }; // column 3 is Status
+            }
+        });
+
+        // Generate buffer
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `attendance_${subject.subjectCode}_${formatDate(date).replace(/\s/g, '_')}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success('Attendance downloaded as Excel successfully!');
     };
 
     const downloadAsJSON = (record) => {
@@ -226,6 +283,15 @@ const AttendanceStore = () => {
                                             </div>
 
                                             <div className="flex flex-wrap gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => downloadAsExcel(record)}
+                                                    className="gap-2 text-green-700 hover:text-green-800"
+                                                >
+                                                    <FileText className="w-4 h-4" />
+                                                    Excel
+                                                </Button>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"

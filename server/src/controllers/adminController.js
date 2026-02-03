@@ -52,13 +52,15 @@ const addTeacher = async (req, res) => {
 };
 
 const addStudent = async (req, res) => {
-    const { name, email, enrollmentNumber, password, department, semester } = req.body;
+    const { name, email, enrollmentNumber, password, department, semester, batch } = req.body;
     try {
         const userExists = await User.findOne({ enrollmentNumber });
         if (userExists) return res.status(400).json({ message: 'Student already exists' });
 
         const user = await User.create({
-            name, email, enrollmentNumber, password, department, semester, role: 'student'
+            name, email, enrollmentNumber, password, department, semester,
+            batch: batch || null, // Optional batch
+            role: 'student'
         });
         res.status(201).json(user);
     } catch (error) {
@@ -115,6 +117,7 @@ const importStudents = async (req, res) => {
                     password: password,
                     department: studentData.department,
                     semester: String(studentData.semester),
+                    batch: studentData.batch || studentData.Batch || null, // Support batch column
                     role: 'student'
                 });
 
@@ -151,7 +154,7 @@ const updateUser = async (req, res) => {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const { name, email, enrollmentNumber, department, semester, password } = req.body;
+        const { name, email, enrollmentNumber, department, semester, password, batch } = req.body;
 
         // Update fields
         if (name) user.name = name;
@@ -159,6 +162,7 @@ const updateUser = async (req, res) => {
         if (enrollmentNumber) user.enrollmentNumber = enrollmentNumber;
         if (department) user.department = department;
         if (semester) user.semester = semester;
+        if (batch) user.batch = batch;
         if (password) user.password = password; // Will be hashed by pre-save hook
 
         await user.save();
@@ -201,10 +205,27 @@ const deleteUser = async (req, res) => {
 // --- SUBJECT MANAGEMENT ---
 
 const createSubject = async (req, res) => {
-    const { subjectName, subjectCode, teacherId, semester, department } = req.body;
+    const {
+        subjectName, subjectCode, teacherId,
+        semester, department, // Legacy inputs
+        departments, semesters, subjectType, allowedBatches // New inputs
+    } = req.body;
+
     try {
+        // Fallback logic for arrays
+        const finalDepartments = departments && departments.length > 0 ? departments : (department ? [department] : []);
+        const finalSemesters = semesters && semesters.length > 0 ? semesters : (semester ? [semester] : []);
+
         const subject = await Subject.create({
-            subjectName, subjectCode, teacherId, semester, department
+            subjectName,
+            subjectCode,
+            teacherId,
+            department: department || finalDepartments[0], // Keep legacy field populated
+            semester: semester || finalSemesters[0],       // Keep legacy field populated
+            departments: finalDepartments,
+            semesters: finalSemesters,
+            subjectType: subjectType || 'Theory',
+            allowedBatches: allowedBatches || []
         });
         res.status(201).json(subject);
     } catch (error) {
@@ -214,6 +235,7 @@ const createSubject = async (req, res) => {
 
 const getAllSubjects = async (req, res) => {
     try {
+        // Populate teacher name/email
         const subjects = await Subject.find().populate('teacherId', 'name email');
         res.json(subjects);
     } catch (error) {
@@ -226,13 +248,43 @@ const updateSubject = async (req, res) => {
         const subject = await Subject.findById(req.params.id);
         if (!subject) return res.status(404).json({ message: 'Subject not found' });
 
-        const { teacherId, subjectName, subjectCode, department, semester } = req.body;
+        const {
+            teacherId, subjectName, subjectCode,
+            department, semester,
+            departments, semesters, subjectType, allowedBatches
+        } = req.body;
 
         if (teacherId) subject.teacherId = teacherId;
         if (subjectName) subject.subjectName = subjectName;
         if (subjectCode) subject.subjectCode = subjectCode;
-        if (department) subject.department = department;
-        if (semester) subject.semester = semester;
+
+        // Update both legacy and new fields
+        if (department) {
+            subject.department = department;
+            // If departments array not provided, ensure this one is in it (or reset it? safer to append or sync)
+            if (!departments) {
+                if (!subject.departments.includes(department)) subject.departments.push(department);
+            }
+        }
+        if (semester) {
+            subject.semester = semester;
+            if (!semesters) {
+                if (!subject.semesters.includes(semester)) subject.semesters.push(semester);
+            }
+        }
+
+        // Overwrite full arrays if provided
+        if (departments) {
+            subject.departments = departments;
+            subject.department = departments[0] || subject.department; // Sync legacy
+        }
+        if (semesters) {
+            subject.semesters = semesters;
+            subject.semester = semesters[0] || subject.semester; // Sync legacy
+        }
+
+        if (subjectType) subject.subjectType = subjectType;
+        if (allowedBatches) subject.allowedBatches = allowedBatches;
 
         await subject.save();
         res.json({ message: 'Subject updated successfully', subject });

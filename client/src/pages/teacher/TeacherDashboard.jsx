@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { BookOpen, UserCheck, Calendar, Archive } from 'lucide-react';
+import { BookOpen, UserCheck, Calendar, Archive, FileBarChart } from 'lucide-react';
 import API_BASE_URL from '../../config/apiConfig';
 
 export const TeacherDashboard = () => {
@@ -42,6 +42,12 @@ export const TeacherDashboard = () => {
                             <Button variant="outline" className="gap-2">
                                 <Archive className="w-4 h-4" />
                                 Store
+                            </Button>
+                        </Link>
+                        <Link to="/teacher/report">
+                            <Button variant="outline" className="gap-2">
+                                <FileBarChart className="w-4 h-4" />
+                                Report
                             </Button>
                         </Link>
                         <Link to="/teacher/attendance">

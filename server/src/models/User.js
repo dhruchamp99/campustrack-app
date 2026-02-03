@@ -37,6 +37,10 @@ const userSchema = new mongoose.Schema({
         type: String, // Applicable for students mainly
         required: function () { return this.role === 'student'; }
     },
+    batch: {
+        type: String, // e.g., 'A', 'B', 'C'
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now

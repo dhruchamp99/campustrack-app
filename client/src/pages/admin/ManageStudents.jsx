@@ -26,7 +26,8 @@ const ManageStudents = () => {
         enrollmentNumber: '',
         password: '',
         department: '',
-        semester: ''
+        semester: '',
+        batch: ''
     });
 
     useEffect(() => {
@@ -56,7 +57,7 @@ const ManageStudents = () => {
             console.log('Student created:', response.data);
             toast.success(`✅ Student ${formData.name} added successfully!`);
             setShowAddForm(false);
-            setFormData({ name: '', email: '', enrollmentNumber: '', password: '', department: '', semester: '' });
+            setFormData({ name: '', email: '', enrollmentNumber: '', password: '', department: '', semester: '', batch: '' });
             fetchStudents();
         } catch (error) {
             console.error('Error creating student:', error);
@@ -73,7 +74,8 @@ const ManageStudents = () => {
             enrollmentNumber: student.enrollmentNumber,
             password: '', // Don't show existing password
             department: student.department,
-            semester: student.semester
+            semester: student.semester,
+            batch: student.batch || ''
         });
         setShowAddForm(true);
     };
@@ -98,7 +100,7 @@ const ManageStudents = () => {
             toast.success(`✅ Student ${formData.name} updated successfully!`);
             setShowAddForm(false);
             setEditingStudent(null);
-            setFormData({ name: '', email: '', enrollmentNumber: '', password: '', department: '', semester: '' });
+            setFormData({ name: '', email: '', enrollmentNumber: '', password: '', department: '', semester: '', batch: '' });
             fetchStudents();
         } catch (error) {
             console.error('Error updating student:', error);
@@ -109,7 +111,7 @@ const ManageStudents = () => {
     const handleCancelEdit = () => {
         setShowAddForm(false);
         setEditingStudent(null);
-        setFormData({ name: '', email: '', enrollmentNumber: '', password: '', department: '', semester: '' });
+        setFormData({ name: '', email: '', enrollmentNumber: '', password: '', department: '', semester: '', batch: '' });
     };
 
     const handleDelete = async (student) => {
@@ -230,10 +232,17 @@ const ManageStudents = () => {
                     const semesterMatch = String(semesterValue).match(/\d+/);
                     const semester = semesterMatch ? semesterMatch[0] : '';
 
+                    const rawEmail = getColumnValue(row, 'Email', 'email', 'E-mail', 'EMAIL');
+                    // If email is missing, generate a unique placeholder: student-<enrollment>@placeholder.com
+                    // This fixes the "Duplicate Key: null" error
+                    const cleanEmail = rawEmail && typeof rawEmail === 'string' && rawEmail.trim() !== ''
+                        ? rawEmail.trim()
+                        : `student-${enrollmentNum}@placeholder.com`;
+
                     return {
                         name: getColumnValue(row, 'Student Name', 'Name', 'name', 'STUDENT NAME'),
                         enrollmentNumber: enrollmentNum,
-                        email: getColumnValue(row, 'Email', 'email', 'E-mail', 'EMAIL'),
+                        email: cleanEmail,
                         department: getColumnValue(row, 'Department', 'department', 'Branch', 'branch', 'BRANCH', 'DEPARTMENT'),
                         semester: semester,
                         password: getColumnValue(row, 'Password', 'password', 'PASSWORD')
@@ -434,6 +443,22 @@ const ManageStudents = () => {
                                             💡 Tip: For GTU Sem 4 subjects, select "Computer Science" and "Semester 4"
                                         </p>
                                     </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="batch">Batch (Optional)</Label>
+                                        <select
+                                            id="batch"
+                                            value={formData.batch}
+                                            onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        >
+                                            <option value="">-- No Batch --</option>
+                                            <option value="A">Batch A</option>
+                                            <option value="B">Batch B</option>
+                                            <option value="C">Batch C</option>
+                                            <option value="D">Batch D</option>
+                                        </select>
+                                    </div>
                                     <div className="md:col-span-2 flex gap-3 justify-end">
                                         <Button type="button" variant="outline" onClick={handleCancelEdit}>
                                             Cancel
@@ -597,6 +622,7 @@ const ManageStudents = () => {
                                         <th className="px-4 py-3 text-left font-medium">Enrollment</th>
                                         <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Department</th>
                                         <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Sem</th>
+                                        <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Batch</th>
                                         <th className="px-4 py-3 text-right font-medium">Actions</th>
                                     </tr>
                                 </thead>
@@ -615,6 +641,13 @@ const ManageStudents = () => {
                                                 <td className="px-4 py-3 font-mono text-xs">{student.enrollmentNumber}</td>
                                                 <td className="px-4 py-3 hidden md:table-cell">{student.department}</td>
                                                 <td className="px-4 py-3 hidden sm:table-cell">{student.semester}</td>
+                                                <td className="px-4 py-3 hidden sm:table-cell">
+                                                    {student.batch ? (
+                                                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-200">
+                                                            {student.batch}
+                                                        </span>
+                                                    ) : '-'}
+                                                </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex gap-2 justify-end">
                                                         <Button

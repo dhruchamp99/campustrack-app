@@ -22,7 +22,7 @@ CardHeader.displayName = "CardHeader"
 const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
     <h3
         ref={ref}
-        className={cn("text-2xl font-semibold leading-none tracking-tight", className)}
+        className={cn("text-2xl font-semibold leading-none tracking-tight top-0", className)} // Added top-0 to fix strange spacing in some cases if positioned
         {...props}
     />
 ))
@@ -42,4 +42,13 @@ const CardContent = React.forwardRef(({ className, ...props }, ref) => (
 ))
 CardContent.displayName = "CardContent"
 
-export { Card, CardHeader, CardTitle, CardDescription, CardContent }
+const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
+    <div
+        ref={ref}
+        className={cn("flex items-center p-6 pt-0", className)}
+        {...props}
+    />
+))
+CardFooter.displayName = "CardFooter"
+
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }

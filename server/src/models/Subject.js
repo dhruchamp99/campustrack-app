@@ -22,6 +22,24 @@ const subjectSchema = new mongoose.Schema({
     department: {
         type: String,
         required: true
+    },
+    // New fields for scaling
+    departments: {
+        type: [String],
+        default: []
+    },
+    semesters: {
+        type: [String],
+        default: []
+    },
+    subjectType: {
+        type: String,
+        enum: ['Theory', 'Lab'],
+        default: 'Theory'
+    },
+    allowedBatches: {
+        type: [String],
+        default: [] // Empty means all batches
     }
 }, {
     timestamps: true

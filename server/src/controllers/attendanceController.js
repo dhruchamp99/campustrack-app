@@ -15,6 +15,41 @@ const markAttendance = async (req, res) => {
         const attendanceDate = new Date(date);
         attendanceDate.setUTCHours(0, 0, 0, 0);
 
+        // --- LAB CONSTRAINT CHECK ---
+        const Subject = require('../models/Subject');
+        const currentSubject = await Subject.findById(subjectId);
+
+        if (currentSubject && currentSubject.subjectType === 'Lab') {
+            const studentIds = students.map(s => s.studentId);
+
+            // Find existing attendance for these students on this date for OTHER subjects
+            const existingAttendance = await Attendance.find({
+                studentId: { $in: studentIds },
+                date: attendanceDate,
+                subjectId: { $ne: subjectId } // Exclude current subject (checking against others)
+            }).populate('subjectId');
+
+            // Check if any existing attendance is also for a Lab
+            const conflicts = existingAttendance.filter(record =>
+                record.subjectId && record.subjectId.subjectType === 'Lab'
+            );
+
+            if (conflicts.length > 0) {
+                // Return clear error message with the first conflicting student
+                const conflictingStudentId = conflicts[0].studentId;
+                const conflictingSubjectName = conflicts[0].subjectId.subjectName;
+
+                // Fetch student name for better error
+                const conflictingStudent = await User.findById(conflictingStudentId);
+
+                return res.status(400).json({
+                    message: `Constraint Violation: Student ${conflictingStudent ? conflictingStudent.name : 'Unknown'} has already attended a Lab today (${conflictingSubjectName}). Only 1 Lab per day is allowed.`
+                });
+            }
+        }
+        // ----------------------------
+
+
         const operations = students.map((student) => ({
             updateOne: {
                 filter: {

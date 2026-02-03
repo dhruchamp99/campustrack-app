@@ -13,6 +13,7 @@ const AttendanceMarking = () => {
     const initialSubjectId = searchParams.get('subject');
     const [subjects, setSubjects] = useState([]);
     const [selectedSubject, setSelectedSubject] = useState(initialSubjectId || '');
+    const [selectedBatches, setSelectedBatches] = useState([]);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -41,7 +42,13 @@ const AttendanceMarking = () => {
         try {
             setLoading(true);
             console.log('Fetching students for subject:', selectedSubject);
-            const res = await axios.get(`${API_BASE_URL}/api/teacher/students/${selectedSubject}`, {
+
+            let url = `${API_BASE_URL}/api/teacher/students/${selectedSubject}`;
+            if (selectedBatches.length > 0) {
+                url += `?batches=${selectedBatches.join(',')}`;
+            }
+
+            const res = await axios.get(url, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             console.log('Fetched students:', res.data);
@@ -130,14 +137,57 @@ const AttendanceMarking = () => {
                                 <select
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     value={selectedSubject}
-                                    onChange={(e) => setSelectedSubject(e.target.value)}
+                                    onChange={(e) => {
+                                        setSelectedSubject(e.target.value);
+                                        setSelectedBatches([]); // Reset batches on subject change
+                                    }}
                                 >
                                     <option value="">-- Select --</option>
                                     {subjects.map(s => (
-                                        <option key={s._id} value={s._id}>{s.subjectName} ({s.subjectCode})</option>
+                                        <option key={s._id} value={s._id}>
+                                            {s.subjectName} ({s.subjectType === 'Lab' ? 'LAB' : 'Theory'})
+                                        </option>
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Batch Selection for Labs */}
+                            {(() => {
+                                const currentSubject = subjects.find(s => s._id === selectedSubject);
+                                if (currentSubject?.subjectType === 'Lab') {
+                                    return (
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Batches (Multi-select)</label>
+                                            <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-muted/20 min-h-[40px] items-center">
+                                                {currentSubject.allowedBatches && currentSubject.allowedBatches.length > 0 ? (
+                                                    currentSubject.allowedBatches.map(batch => (
+                                                        <label key={batch} className="flex items-center gap-1.5 cursor-pointer bg-white px-2 py-1 rounded border hover:bg-gray-50">
+                                                            <input
+                                                                type="checkbox"
+                                                                value={batch}
+                                                                checked={selectedBatches.includes(batch)}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        setSelectedBatches([...selectedBatches, batch]);
+                                                                    } else {
+                                                                        setSelectedBatches(selectedBatches.filter(b => b !== batch));
+                                                                    }
+                                                                }}
+                                                                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                            />
+                                                            <span className="text-sm font-medium">{batch}</span>
+                                                        </label>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground italic">No specific batches restricted. Fetching all.</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Date</label>
                                 <input

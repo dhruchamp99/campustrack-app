@@ -13,7 +13,12 @@ import {
     Menu,
     X,
     Bell,
-    Archive
+    Archive,
+    FileBarChart,
+    Book,
+    BarChart,
+    PieChart,
+    TableProperties
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -44,11 +49,16 @@ const DashboardLayout = ({ children }) => {
                 { href: '/teacher/subjects', label: 'My Subjects', icon: BookOpen },
                 { href: '/teacher/attendance', label: 'Mark Attendance', icon: CheckSquare },
                 { href: '/teacher/store', label: 'Store', icon: Archive },
+                { href: '/teacher/report', label: 'Attendance Report', icon: FileBarChart },
             ];
         } else {
+            // Student Links (Updated)
             return [
                 { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { href: '/student/attendance', label: 'My History', icon: CheckSquare },
+                // { href: '/student/attendance', label: 'Attendance', icon: CheckSquare }, // Removed as per request
+                { href: '/student/materials', label: 'Study Materials', icon: Book },
+                { href: '/student/analytics', label: 'Analytics', icon: PieChart },
+                { href: '/student/time-table', label: 'Time Table', icon: TableProperties },
             ];
         }
     };
@@ -154,12 +164,12 @@ const DashboardLayout = ({ children }) => {
                 </AnimatePresence>
 
                 {/* Main Content Area */}
-                <main className="flex-1 p-6 md:p-8 bg-muted/10 overflow-auto">
+                <main className="flex-1 p-6 md:p-8 bg-slate-100 overflow-auto">
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4 }}
-                        className="max-w-7xl mx-auto space-y-6"
+                        className="mx-auto space-y-6"
                     >
                         {children}
                     </motion.div>

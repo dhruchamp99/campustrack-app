@@ -344,9 +344,11 @@ const ManageTeachers = () => {
                                                                 className="w-4 h-4"
                                                             />
                                                             <div className="flex-1">
-                                                                <p className="font-medium text-sm">{subject.subjectName}</p>
+                                                                <p className="font-medium text-sm">
+                                                                    {subject.subjectName} {subject.subjectType === 'Lab' && '(Lab)'}
+                                                                </p>
                                                                 <p className="text-xs text-muted-foreground">
-                                                                    {subject.subjectCode} • {subject.department} • Sem {subject.semester}
+                                                                    {subject.subjectCode} • {subject.departments?.length > 1 ? 'Mix Depts' : subject.department} • Sem {subject.semesters?.length > 1 ? 'Mix' : subject.semester}
                                                                 </p>
                                                             </div>
                                                         </label>
@@ -451,7 +453,7 @@ const ManageTeachers = () => {
                     </CardContent>
                 </Card>
             </div>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 };
 

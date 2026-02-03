@@ -19,8 +19,10 @@ const ManageSubjects = () => {
         subjectName: '',
         subjectCode: '',
         teacherId: '',
-        department: '',
-        semester: ''
+        departments: '', // Changed from department
+        semesters: '',   // Changed from semester
+        subjectType: 'Theory',
+        allowedBatches: ''
     });
 
     useEffect(() => {
@@ -54,12 +56,30 @@ const ManageSubjects = () => {
     const handleAddSubject = async (e) => {
         e.preventDefault();
         try {
-            await axios.post(`${API_BASE_URL}/api/admin/subjects`, formData, {
+            // Process comma-separated inputs into arrays
+            const departmentsArray = formData.departments.split(',').map(s => s.trim()).filter(s => s);
+            const semestersArray = formData.semesters.split(',').map(s => s.trim()).filter(s => s);
+            const allowedBatchesArray = formData.allowedBatches ? formData.allowedBatches.split(',').map(s => s.trim()).filter(s => s) : [];
+
+            const payload = {
+                ...formData,
+                departments: departmentsArray,
+                semesters: semestersArray,
+                allowedBatches: allowedBatchesArray,
+                // Legacy fields for backward compat if needed by some older UI parts
+                department: departmentsArray[0],
+                semester: semestersArray[0]
+            };
+
+            await axios.post(`${API_BASE_URL}/api/admin/subjects`, payload, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             alert('Subject added successfully!');
             setShowAddForm(false);
-            setFormData({ subjectName: '', subjectCode: '', teacherId: '', department: '', semester: '' });
+            setFormData({
+                subjectName: '', subjectCode: '', teacherId: '',
+                departments: '', semesters: '', subjectType: 'Theory', allowedBatches: ''
+            });
             fetchSubjects();
         } catch (error) {
             alert(error.response?.data?.message || 'Failed to add subject');
@@ -69,7 +89,7 @@ const ManageSubjects = () => {
     const filteredSubjects = subjects.filter(s =>
         s.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.department.toLowerCase().includes(searchTerm.toLowerCase())
+        (s.departments && s.departments.join(' ').toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     return (
@@ -148,24 +168,58 @@ const ManageSubjects = () => {
                                             ))}
                                         </select>
                                     </div>
+
                                     <div className="space-y-2">
-                                        <Label htmlFor="department">Department *</Label>
+                                        <Label htmlFor="subjectType">Subject Type *</Label>
+                                        <select
+                                            id="subjectType"
+                                            value={formData.subjectType || 'Theory'}
+                                            onChange={(e) => setFormData({ ...formData, subjectType: e.target.value })}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        >
+                                            <option value="Theory">Theory</option>
+                                            <option value="Lab">Lab</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="departments">Departments (comma separated) *</Label>
                                         <Input
-                                            id="department"
+                                            id="departments"
                                             required
-                                            value={formData.department}
-                                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                            placeholder="e.g. Computer Science, IT"
+                                            value={formData.departments || ''}
+                                            onChange={(e) => setFormData({ ...formData, departments: e.target.value })}
+                                        />
+                                        <p className="text-[10px] text-muted-foreground">For scaling: Add multiple departments sharing this subject.</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="semesters">Semesters (comma separated) *</Label>
+                                        <Input
+                                            id="semesters"
+                                            required
+                                            placeholder="e.g. 1, 2"
+                                            value={formData.semesters || ''}
+                                            onChange={(e) => setFormData({ ...formData, semesters: e.target.value })}
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="semester">Semester *</Label>
-                                        <Input
-                                            id="semester"
-                                            required
-                                            value={formData.semester}
-                                            onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                                        />
-                                    </div>
+
+                                    {/* Conditional Batch Input for Labs */}
+                                    {formData.subjectType === 'Lab' && (
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="allowedBatches">Allowed Batches (comma separated)</Label>
+                                            <Input
+                                                id="allowedBatches"
+                                                placeholder="e.g. A, B (Leave empty for ALL batches)"
+                                                value={formData.allowedBatches || ''}
+                                                onChange={(e) => setFormData({ ...formData, allowedBatches: e.target.value })}
+                                                className="border-indigo-300 bg-indigo-50/20"
+                                            />
+                                            <p className="text-[10px] text-muted-foreground">Constrains which students appear for this lab.</p>
+                                        </div>
+                                    )}
+
                                     <div className="md:col-span-2 flex gap-3 justify-end">
                                         <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
                                             Cancel
@@ -203,10 +257,27 @@ const ManageSubjects = () => {
                                         filteredSubjects.map((subject) => (
                                             <tr key={subject._id} className="hover:bg-muted/30 transition-colors">
                                                 <td className="px-4 py-3 font-mono text-xs font-bold">{subject.subjectCode}</td>
-                                                <td className="px-4 py-3 font-medium">{subject.subjectName}</td>
+                                                <td className="px-4 py-3 font-medium">
+                                                    {subject.subjectName}
+                                                    {subject.subjectType === 'Lab' && (
+                                                        <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-sky-100 text-sky-800 border border-sky-200">
+                                                            Lab
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="px-4 py-3">{subject.teacherId?.name || 'Not Assigned'}</td>
-                                                <td className="px-4 py-3">{subject.department}</td>
-                                                <td className="px-4 py-3">{subject.semester}</td>
+                                                <td className="px-4 py-3">
+                                                    {subject.departments?.length > 1
+                                                        ? `${subject.departments.length} Depts`
+                                                        : subject.departments?.[0] || subject.department
+                                                    }
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {subject.semesters?.length > 1
+                                                        ? `${subject.semesters.length} Sems`
+                                                        : subject.semesters?.[0] || subject.semester
+                                                    }
+                                                </td>
                                             </tr>
                                         ))
                                     )}
