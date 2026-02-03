@@ -50,6 +50,7 @@ const DashboardLayout = ({ children }) => {
                 { href: '/teacher/attendance', label: 'Mark Attendance', icon: CheckSquare },
                 { href: '/teacher/store', label: 'Store', icon: Archive },
                 { href: '/teacher/report', label: 'Attendance Report', icon: FileBarChart },
+                { href: '/teacher/overall-attendance', label: 'Overall Report', icon: BarChart },
             ];
         } else {
             // Student Links (Updated)
