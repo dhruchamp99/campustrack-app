@@ -106,7 +106,88 @@ const getStudentsForSubject = async (req, res) => {
     }
 };
 
+// @desc    Get Overall Attendance Report for a Subject (All Students)
+// @route   GET /api/teacher/attendance-report/:subjectId
+// @access  Private (Teacher)
+const getSubjectAttendanceReport = async (req, res) => {
+    try {
+        const { subjectId } = req.params;
+        const Subject = require('../models/Subject');
+        const subject = await Subject.findById(subjectId);
+
+        if (!subject) {
+            return res.status(404).json({ message: 'Subject not found' });
+        }
+
+        // Security Check
+        if (subject.teacherId.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized for this subject' });
+        }
+
+        // 1. Find all Eligible Students (same logic as getStudentsForSubject)
+        const targetDepartments = subject.departments && subject.departments.length > 0 ? subject.departments : [subject.department];
+        const targetSemesters = subject.semesters && subject.semesters.length > 0 ? subject.semesters : [subject.semester];
+
+        const targetSemestersMixed = [
+            ...targetSemesters,
+            ...targetSemesters.map(s => parseInt(s)).filter(n => !isNaN(n)),
+            ...targetSemesters.map(s => String(s))
+        ];
+
+        let batchQuery = {};
+        // If Lab with strict batches, only fetch those students. 
+        // Note: Usually a "Subject Report" should show everyone enrolled, but if the subject is strictly 'A,B', then 'C,D' students are irrelevant.
+        if (subject.subjectType === 'Lab' && subject.allowedBatches && subject.allowedBatches.length > 0) {
+            batchQuery = { batch: { $in: subject.allowedBatches } };
+        }
+
+        const students = await require('../models/User').find({
+            role: 'student',
+            department: { $in: targetDepartments },
+            semester: { $in: targetSemestersMixed },
+            ...batchQuery
+        }).select('name enrollmentNumber batch').sort({ enrollmentNumber: 1 });
+
+        // 2. Fetch Attendance Stats for this Subject
+        const attendanceStats = await require('../models/Attendance').aggregate([
+            { $match: { subjectId: subject._id } },
+            {
+                $group: {
+                    _id: '$studentId',
+                    totalClasses: { $sum: 1 },
+                    presentClasses: { $sum: { $cond: [{ $eq: ['$status', 'present'] }, 1, 0] } }
+                }
+            }
+        ]);
+
+        // 3. Map Stats to Students
+        const report = students.map(student => {
+            const stats = attendanceStats.find(s => s._id.toString() === student._id.toString());
+            const total = stats ? stats.totalClasses : 0;
+            const present = stats ? stats.presentClasses : 0;
+            const percentage = total > 0 ? ((present / total) * 100).toFixed(1) : 0;
+
+            return {
+                studentId: student._id,
+                name: student.name,
+                enrollmentNumber: student.enrollmentNumber,
+                batch: student.batch || '-',
+                totalClasses: total,
+                presentClasses: present,
+                percentage: percentage
+            };
+        });
+
+        res.json(report);
+
+    } catch (error) {
+        console.error('Error in getSubjectAttendanceReport:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getAssignedSubjects,
-    getStudentsForSubject
+    getStudentsForSubject,
+    getSubjectAttendanceReport
 };

@@ -10,6 +10,7 @@ import { TeacherDashboard } from './pages/teacher/TeacherDashboard';
 import AttendanceMarking from './pages/teacher/AttendanceMarking';
 import AttendanceStore from './pages/teacher/AttendanceStore';
 import AttendanceReport from './pages/teacher/AttendanceReport';
+import OverallAttendance from './pages/teacher/OverallAttendance';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import StudentAttendance from './pages/student/StudentAttendance';
 import StudentMaterials from './pages/student/StudentMaterials';
@@ -77,6 +78,11 @@ function App() {
       <Route path="/teacher/report" element={
         <PrivateRoute roles={['teacher']}>
           <AttendanceReport />
+        </PrivateRoute>
+      } />
+      <Route path="/teacher/overall-attendance" element={
+        <PrivateRoute roles={['teacher']}>
+          <OverallAttendance />
         </PrivateRoute>
       } />
       <Route path="/teacher/subjects" element={

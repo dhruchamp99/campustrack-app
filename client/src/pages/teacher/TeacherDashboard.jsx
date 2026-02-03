@@ -50,6 +50,12 @@ export const TeacherDashboard = () => {
                                 Report
                             </Button>
                         </Link>
+                        <Link to="/teacher/overall-attendance">
+                            <Button variant="outline" className="gap-2">
+                                <FileBarChart className="w-4 h-4" />
+                                Overall Report
+                            </Button>
+                        </Link>
                         <Link to="/teacher/attendance">
                             <Button className="gap-2 shadow-lg bg-primary hover:bg-primary/90">
                                 <UserCheck className="w-4 h-4" />

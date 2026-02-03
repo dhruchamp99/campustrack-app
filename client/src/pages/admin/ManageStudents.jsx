@@ -416,6 +416,7 @@ const ManageStudents = () => {
                                             <option value="Computer Science">Computer Science</option>
                                             <option value="Information Technology">Information Technology</option>
                                             <option value="Electronics">Electronics</option>
+                                            <option value="Chemical">Chemical</option>
                                             <option value="Mechanical">Mechanical</option>
                                             <option value="Civil">Civil</option>
                                         </select>

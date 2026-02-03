@@ -8,5 +8,6 @@ router.use(authorize('teacher'));
 
 router.get('/subjects', getAssignedSubjects);
 router.get('/students/:subjectId', require('../controllers/teacherController').getStudentsForSubject); // Ensure imported if not
+router.get('/attendance-report/:subjectId', require('../controllers/teacherController').getSubjectAttendanceReport);
 
 module.exports = router;
