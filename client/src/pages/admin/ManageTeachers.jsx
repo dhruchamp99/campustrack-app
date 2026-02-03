@@ -125,28 +125,14 @@ const ManageTeachers = () => {
         });
     };
 
-    const handleEdit = (teacher) => {
-        setEditingTeacher(teacher);
-        setFormData({
-            name: teacher.name,
-            email: teacher.email,
-            password: '',
-            department: teacher.department
-        });
-        // Get subjects assigned to this teacher
-        const teacherSubjectIds = subjects
-            .filter(s => s.teacherId?._id === teacher._id)
-            .map(s => s._id);
-        setSelectedSubjects(teacherSubjectIds);
-        setShowAddForm(true);
-    };
+
 
     const handleUpdate = async (e) => {
         e.preventDefault();
         try {
-            // Update teacher info (only if password is provided)
+            // Update teacher info (only if password is provided and changed)
             const updateData = { ...formData };
-            if (!updateData.password) {
+            if (!updateData.password || updateData.password === '********') {
                 delete updateData.password;
             }
 
@@ -197,6 +183,27 @@ const ManageTeachers = () => {
         setSelectedSubjects([]);
     };
 
+    const getTeacherSubjects = (teacherId) => {
+        return subjects.filter(s => s.teacherId?._id === teacherId);
+    };
+
+    // Moved handleEdit closer for context but keep reference intact
+    const handleEdit = (teacher) => {
+        setEditingTeacher(teacher);
+        setFormData({
+            name: teacher.name,
+            email: teacher.email,
+            password: '********', // Show dummy password
+            department: teacher.department
+        });
+        // Get subjects assigned to this teacher
+        const teacherSubjectIds = subjects
+            .filter(s => s.teacherId?._id === teacher._id)
+            .map(s => s._id);
+        setSelectedSubjects(teacherSubjectIds);
+        setShowAddForm(true);
+    };
+
     const toggleSubject = (subjectId) => {
         setSelectedSubjects(prev =>
             prev.includes(subjectId)
@@ -211,10 +218,7 @@ const ManageTeachers = () => {
         t.department.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Get subjects assigned to a teacher
-    const getTeacherSubjects = (teacherId) => {
-        return subjects.filter(s => s.teacherId?._id === teacherId);
-    };
+
 
     return (
         <DashboardLayout>
