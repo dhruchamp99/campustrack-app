@@ -22,24 +22,26 @@ const markAttendance = async (req, res) => {
         if (currentSubject && currentSubject.subjectType === 'Lab') {
             const studentIds = students.map(s => s.studentId);
 
-            // Find existing attendance for these students on this date for OTHER subjects
-            const existingAttendance = await Attendance.find({
-                studentId: { $in: studentIds },
+            // Find existing session documents for these students on this date for OTHER subjects
+            const existingSessions = await Attendance.find({
                 date: attendanceDate,
-                subjectId: { $ne: subjectId } // Exclude current subject (checking against others)
+                subjectId: { $ne: subjectId },
+                presentStudents: { $in: studentIds }
             }).populate('subjectId');
 
-            // Check if any existing attendance is also for a Lab
-            const conflicts = existingAttendance.filter(record =>
-                record.subjectId && record.subjectId.subjectType === 'Lab'
+            // Check if any existing session is also for a Lab
+            const conflicts = existingSessions.filter(session =>
+                session.subjectId && session.subjectId.subjectType === 'Lab'
             );
 
             if (conflicts.length > 0) {
-                // Return clear error message with the first conflicting student
-                const conflictingStudentId = conflicts[0].studentId;
                 const conflictingSubjectName = conflicts[0].subjectId.subjectName;
 
-                // Fetch student name for better error
+                // Find which student is conflicting
+                const conflictingStudentId = studentIds.find(sid =>
+                    conflicts[0].presentStudents.some(pid => pid.toString() === sid.toString())
+                );
+
                 const conflictingStudent = await User.findById(conflictingStudentId);
 
                 return res.status(400).json({
@@ -49,25 +51,28 @@ const markAttendance = async (req, res) => {
         }
         // ----------------------------
 
+        // Split students into present and absent arrays
+        const presentStudents = students
+            .filter(s => s.status === 'present')
+            .map(s => s.studentId);
 
-        const operations = students.map((student) => ({
-            updateOne: {
-                filter: {
-                    studentId: student.studentId,
-                    subjectId: subjectId,
-                    date: attendanceDate
-                },
-                update: {
-                    $set: {
-                        status: student.status,
-                        markedBy: req.user.id
-                    }
-                },
-                upsert: true
-            }
-        }));
+        const absentStudents = students
+            .filter(s => s.status === 'absent')
+            .map(s => s.studentId);
 
-        await Attendance.bulkWrite(operations);
+        // Upsert: one session document per subject per date
+        await Attendance.updateOne(
+            { subjectId: subjectId, date: attendanceDate },
+            {
+                $set: {
+                    markedBy: req.user.id,
+                    presentStudents: presentStudents,
+                    absentStudents: absentStudents
+                }
+            },
+            { upsert: true }
+        );
+
         res.status(200).json({ message: 'Attendance marked successfully' });
 
     } catch (error) {
@@ -76,6 +81,10 @@ const markAttendance = async (req, res) => {
 };
 
 // @desc    Get Attendance for a specific Subject and Date
+// @route   GET /api/attendance/subject/:subjectId
+// @access  Private (Teacher/Admin)
+// IMPORTANT: Frontend (AttendanceReport.jsx) expects an array of objects with shape:
+//   { studentId: { _id, name, enrollmentNumber }, date: "ISO", status: "present"|"absent" }
 const getSubjectAttendance = async (req, res) => {
     const { subjectId } = req.params;
     const { date } = req.query;
@@ -88,63 +97,126 @@ const getSubjectAttendance = async (req, res) => {
             query.date = attendanceDate;
         }
 
-        const attendance = await Attendance.find(query)
-            .populate('studentId', 'name enrollmentNumber')
-            .sort({ 'studentId.enrollmentNumber': 1 }); // Sorting might need aggregation for populated field
+        const sessions = await Attendance.find(query)
+            .populate('presentStudents', 'name enrollmentNumber')
+            .populate('absentStudents', 'name enrollmentNumber');
 
-        res.json(attendance);
+        // Flatten sessions back into the individual-record format the frontend expects
+        const flatRecords = [];
+        sessions.forEach(session => {
+            session.presentStudents.forEach(student => {
+                flatRecords.push({
+                    _id: `${session._id}_p_${student._id}`,
+                    studentId: student,
+                    subjectId: session.subjectId,
+                    date: session.date.toISOString(),
+                    status: 'present',
+                    markedBy: session.markedBy
+                });
+            });
+            session.absentStudents.forEach(student => {
+                flatRecords.push({
+                    _id: `${session._id}_a_${student._id}`,
+                    studentId: student,
+                    subjectId: session.subjectId,
+                    date: session.date.toISOString(),
+                    status: 'absent',
+                    markedBy: session.markedBy
+                });
+            });
+        });
+
+        res.json(flatRecords);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
 // @desc    Get Single Student Attendance (List + Populated Refs)
+// @route   GET /api/attendance/student/:studentId
+// @access  Private
+// IMPORTANT: Frontend (StudentAttendance.jsx) expects an array of objects with shape:
+//   { subjectId: { subjectName, subjectCode }, markedBy: { name }, date: "ISO", status: "present"|"absent" }
 const getStudentAttendance = async (req, res) => {
     if (req.user.role === 'student' && req.user.id !== req.params.studentId) {
         return res.status(403).json({ message: 'Not authorized' });
     }
 
     try {
-        const attendance = await Attendance.find({ studentId: req.params.studentId })
+        const studentId = req.params.studentId;
+
+        // Find sessions where this student appears in either array
+        const sessions = await Attendance.find({
+            $or: [
+                { presentStudents: studentId },
+                { absentStudents: studentId }
+            ]
+        })
             .populate('subjectId', 'subjectName subjectCode')
             .populate('markedBy', 'name')
             .sort({ date: -1 });
 
-        res.json(attendance);
+        // Flatten into the individual-record format the frontend expects
+        const flatRecords = sessions.map(session => {
+            const isPresent = session.presentStudents.some(
+                pid => pid.toString() === studentId.toString()
+            );
+            return {
+                _id: `${session._id}_${studentId}`,
+                studentId: studentId,
+                subjectId: session.subjectId,
+                markedBy: session.markedBy,
+                date: session.date.toISOString(),
+                status: isPresent ? 'present' : 'absent'
+            };
+        });
+
+        res.json(flatRecords);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
 // @desc    Generate Report (Admin)
-// Retrieves low attendance students across the system (simple version)
+// @route   GET /api/attendance/report
+// @access  Private (Admin)
+// IMPORTANT: Frontend expects array of { _id: { _id, name, enrollmentNumber, department }, totalClasses, presentClasses, percentage }
 const getAttendanceReport = async (req, res) => {
     try {
-        // Aggregate to find percentage per student
-        const report = await Attendance.aggregate([
-            {
-                $group: {
-                    _id: "$studentId",
-                    totalClasses: { $sum: 1 },
-                    presentClasses: {
-                        $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] }
-                    }
-                }
-            },
-            {
-                $project: {
-                    percentage: { $multiply: [{ $divide: ["$presentClasses", "$totalClasses"] }, 100] },
-                    totalClasses: 1,
-                    presentClasses: 1
-                }
-            },
-            { $sort: { percentage: 1 } } // Show lowest attendance first
-        ]);
+        // Fetch all sessions
+        const sessions = await Attendance.find({});
 
-        // Populate user details (since aggregate returned simple _id)
+        // Build per-student stats
+        const studentStats = {};
+        sessions.forEach(session => {
+            session.presentStudents.forEach(sid => {
+                const key = sid.toString();
+                if (!studentStats[key]) studentStats[key] = { total: 0, present: 0 };
+                studentStats[key].total++;
+                studentStats[key].present++;
+            });
+            session.absentStudents.forEach(sid => {
+                const key = sid.toString();
+                if (!studentStats[key]) studentStats[key] = { total: 0, present: 0 };
+                studentStats[key].total++;
+            });
+        });
+
+        // Format into the shape the frontend expects
+        const report = Object.entries(studentStats).map(([studentId, stats]) => ({
+            _id: studentId,
+            totalClasses: stats.total,
+            presentClasses: stats.present,
+            percentage: (stats.present / stats.total) * 100
+        }));
+
+        // Sort by percentage ascending (lowest first)
+        report.sort((a, b) => a.percentage - b.percentage);
+
+        // Populate user details
         const populatedReport = await User.populate(report, { path: "_id", select: "name enrollmentNumber department" });
 
-        // Filter out records where student was deleted (null _id)
+        // Filter out deleted students
         const filteredReport = populatedReport.filter(record => record._id !== null);
 
         res.json(filteredReport);
@@ -156,64 +228,64 @@ const getAttendanceReport = async (req, res) => {
 // @desc    Get Teacher's Submitted Attendance Records
 // @route   GET /api/attendance/teacher/submitted
 // @access  Private (Teacher)
+// IMPORTANT: Frontend (AttendanceStore.jsx) expects array of:
+//   { subject: { _id, subjectName, subjectCode, department, semester }, date, students: [{ _id, enrollmentNumber, name, status }] }
 const getTeacherSubmittedAttendance = async (req, res) => {
     try {
         const teacherId = req.user.id;
 
-        // Find all attendance records marked by this teacher
-        const attendanceRecords = await Attendance.find({ markedBy: teacherId })
-            .populate('studentId', 'name enrollmentNumber')
+        // Find all sessions marked by this teacher
+        const sessions = await Attendance.find({ markedBy: teacherId })
             .populate('subjectId', 'subjectName subjectCode department semester')
-            .sort({ date: -1, subjectId: 1 });
+            .populate('presentStudents', 'name enrollmentNumber')
+            .populate('absentStudents', 'name enrollmentNumber')
+            .sort({ date: -1 });
 
-        // Filter out records where student or subject was deleted
-        const validRecords = attendanceRecords.filter(
-            record => record.studentId !== null && record.subjectId !== null
-        );
+        // Filter out sessions with deleted subjects
+        const validSessions = sessions.filter(s => s.subjectId !== null);
 
-        // Group by date and subject
-        const groupedData = {};
-        validRecords.forEach(record => {
-            const dateKey = record.date.toISOString().split('T')[0];
-            const subjectKey = record.subjectId._id.toString();
+        // Format into the shape the frontend expects
+        const formattedData = validSessions.map(session => {
+            const students = [];
 
-            if (!groupedData[dateKey]) {
-                groupedData[dateKey] = {};
-            }
-
-            if (!groupedData[dateKey][subjectKey]) {
-                groupedData[dateKey][subjectKey] = {
-                    subject: {
-                        _id: record.subjectId._id,
-                        subjectName: record.subjectId.subjectName,
-                        subjectCode: record.subjectId.subjectCode,
-                        department: record.subjectId.department,
-                        semester: record.subjectId.semester
-                    },
-                    date: record.date,
-                    students: []
-                };
-            }
-
-            groupedData[dateKey][subjectKey].students.push({
-                _id: record._id,
-                enrollmentNumber: record.studentId.enrollmentNumber,
-                name: record.studentId.name,
-                status: record.status
+            session.presentStudents.forEach(student => {
+                if (student) {
+                    students.push({
+                        _id: `${session._id}_p_${student._id}`,
+                        enrollmentNumber: student.enrollmentNumber,
+                        name: student.name,
+                        status: 'present'
+                    });
+                }
             });
-        });
 
-        // Convert to array format and sort students by enrollment number
-        const formattedData = [];
-        Object.keys(groupedData).forEach(dateKey => {
-            Object.keys(groupedData[dateKey]).forEach(subjectKey => {
-                const record = groupedData[dateKey][subjectKey];
-                // Sort students by enrollment number in ascending order
-                record.students.sort((a, b) => {
-                    return a.enrollmentNumber.localeCompare(b.enrollmentNumber, undefined, { numeric: true });
-                });
-                formattedData.push(record);
+            session.absentStudents.forEach(student => {
+                if (student) {
+                    students.push({
+                        _id: `${session._id}_a_${student._id}`,
+                        enrollmentNumber: student.enrollmentNumber,
+                        name: student.name,
+                        status: 'absent'
+                    });
+                }
             });
+
+            // Sort students by enrollment number
+            students.sort((a, b) =>
+                a.enrollmentNumber.localeCompare(b.enrollmentNumber, undefined, { numeric: true })
+            );
+
+            return {
+                subject: {
+                    _id: session.subjectId._id,
+                    subjectName: session.subjectId.subjectName,
+                    subjectCode: session.subjectId.subjectCode,
+                    department: session.subjectId.department,
+                    semester: session.subjectId.semester
+                },
+                date: session.date,
+                students: students
+            };
         });
 
         res.json(formattedData);
@@ -234,27 +306,19 @@ const deleteAttendanceRecord = async (req, res) => {
             return res.status(400).json({ message: 'Subject ID and date are required' });
         }
 
-        // Parse the date to match the format in database
         const attendanceDate = new Date(date);
         attendanceDate.setUTCHours(0, 0, 0, 0);
 
-        // Find all attendance records for this subject, date, and teacher
-        const records = await Attendance.find({
+        // Find and delete the single session document
+        const result = await Attendance.deleteOne({
             subjectId: subjectId,
             date: attendanceDate,
             markedBy: teacherId
         });
 
-        if (records.length === 0) {
+        if (result.deletedCount === 0) {
             return res.status(404).json({ message: 'No attendance records found for this date and subject' });
         }
-
-        // Delete all attendance records for this subject and date
-        const result = await Attendance.deleteMany({
-            subjectId: subjectId,
-            date: attendanceDate,
-            markedBy: teacherId
-        });
 
         res.status(200).json({
             message: 'Attendance records deleted successfully',

@@ -178,11 +178,14 @@ const deleteUser = async (req, res) => {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        // If deleting a student, also delete their attendance records
+        // If deleting a student, remove them from all attendance session arrays
         if (user.role === 'student') {
             const Attendance = require('../models/Attendance');
-            await Attendance.deleteMany({ studentId: req.params.id });
-            console.log(`Deleted attendance records for student ${user.name}`);
+            await Attendance.updateMany(
+                {},
+                { $pull: { presentStudents: req.params.id, absentStudents: req.params.id } }
+            );
+            console.log(`Removed student ${user.name} from all attendance records`);
         }
 
         // If deleting a teacher, unassign them from subjects

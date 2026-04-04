@@ -151,17 +151,26 @@ const getSubjectAttendanceReport = async (req, res) => {
             ...batchQuery
         }).select('name enrollmentNumber batch').sort({ enrollmentNumber: 1 });
 
-        // 2. Fetch Attendance Stats for this Subject
-        const attendanceStats = await Attendance.aggregate([
-            { $match: { subjectId: subject._id } },
-            {
-                $group: {
-                    _id: '$studentId',
-                    totalClasses: { $sum: 1 },
-                    presentClasses: { $sum: { $cond: [{ $eq: ['$status', 'present'] }, 1, 0] } }
-                }
-            }
-        ]);
+        // 2. Fetch Attendance Stats for this Subject (new array-based sessions)
+        const sessions = await Attendance.find({ subjectId: subject._id });
+
+        // Build per-student stats from session arrays
+        const statsMap = {};
+        sessions.forEach(session => {
+            session.presentStudents.forEach(sid => {
+                const key = sid.toString();
+                if (!statsMap[key]) statsMap[key] = { _id: sid, totalClasses: 0, presentClasses: 0 };
+                statsMap[key].totalClasses++;
+                statsMap[key].presentClasses++;
+            });
+            session.absentStudents.forEach(sid => {
+                const key = sid.toString();
+                if (!statsMap[key]) statsMap[key] = { _id: sid, totalClasses: 0, presentClasses: 0 };
+                statsMap[key].totalClasses++;
+            });
+        });
+
+        const attendanceStats = Object.values(statsMap);
 
         // 3. Map Stats to Students
         const report = students.map(student => {

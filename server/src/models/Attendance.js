@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema({
-    studentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
     subjectId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Subject',
@@ -13,25 +8,31 @@ const attendanceSchema = new mongoose.Schema({
     },
     date: {
         type: Date,
-        required: true,
-        default: Date.now
-    },
-    status: {
-        type: String,
-        enum: ['present', 'absent'],
         required: true
     },
     markedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
-    }
+    },
+    // Arrays of student IDs — stores BOTH present and absent explicitly
+    presentStudents: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    absentStudents: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }]
 }, {
     timestamps: true
 });
 
-// Compound index to prevent duplicate attendance.
-// NOTE: We only enforce student+subject+date uniqueness.
-attendanceSchema.index({ studentId: 1, subjectId: 1, date: 1 }, { unique: true });
+// One session per subject per date — prevents duplicate marking
+attendanceSchema.index({ subjectId: 1, date: 1 }, { unique: true });
+
+// Speed up student lookups across sessions
+attendanceSchema.index({ presentStudents: 1 });
+attendanceSchema.index({ absentStudents: 1 });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);
