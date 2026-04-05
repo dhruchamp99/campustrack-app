@@ -6,6 +6,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import ManageStudents from './pages/admin/ManageStudents';
 import ManageTeachers from './pages/admin/ManageTeachers';
 import ManageSubjects from './pages/admin/ManageSubjects';
+import SwitchSemester from './pages/admin/SwitchSemester';
 import { TeacherDashboard } from './pages/teacher/TeacherDashboard';
 import AttendanceMarking from './pages/teacher/AttendanceMarking';
 import AttendanceStore from './pages/teacher/AttendanceStore';
@@ -61,6 +62,11 @@ function App() {
       <Route path="/admin/subjects" element={
         <PrivateRoute roles={['admin']}>
           <ManageSubjects />
+        </PrivateRoute>
+      } />
+      <Route path="/admin/switch-semester" element={
+        <PrivateRoute roles={['admin']}>
+          <SwitchSemester />
         </PrivateRoute>
       } />
 

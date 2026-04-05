@@ -18,7 +18,8 @@ import {
     Book,
     BarChart,
     PieChart,
-    TableProperties
+    TableProperties,
+    ArrowUpDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -42,6 +43,7 @@ const DashboardLayout = ({ children }) => {
                 { href: '/admin/teachers', label: 'Teachers', icon: Users },
                 { href: '/admin/subjects', label: 'Subjects', icon: BookOpen },
                 { href: '/admin/holidays', label: 'Holidays', icon: Calendar },
+                { href: '/admin/switch-semester', label: 'Switch Semester', icon: ArrowUpDown },
             ];
         } else if (user.role === 'teacher') {
             return [

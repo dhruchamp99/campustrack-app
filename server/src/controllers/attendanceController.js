@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const { getAcademicYear, getCurrentAcademicYear } = require('../utils/academicYear');
 
 // @desc    Mark Attendance (Bulk or Single)
 // @route   POST /api/attendance/mark
@@ -15,6 +16,9 @@ const markAttendance = async (req, res) => {
         const attendanceDate = new Date(date);
         attendanceDate.setUTCHours(0, 0, 0, 0);
 
+        // Auto-calculate academic year from the date
+        const academicYear = getAcademicYear(attendanceDate);
+
         // --- LAB CONSTRAINT CHECK ---
         const Subject = require('../models/Subject');
         const currentSubject = await Subject.findById(subjectId);
@@ -25,6 +29,7 @@ const markAttendance = async (req, res) => {
             // Find existing session documents for these students on this date for OTHER subjects
             const existingSessions = await Attendance.find({
                 date: attendanceDate,
+                academicYear: academicYear,
                 subjectId: { $ne: subjectId },
                 presentStudents: { $in: studentIds }
             }).populate('subjectId');
@@ -60,14 +65,15 @@ const markAttendance = async (req, res) => {
             .filter(s => s.status === 'absent')
             .map(s => s.studentId);
 
-        // Upsert: one session document per subject per date
+        // Upsert: one session document per subject per date per academic year
         await Attendance.updateOne(
-            { subjectId: subjectId, date: attendanceDate },
+            { subjectId: subjectId, date: attendanceDate, academicYear: academicYear },
             {
                 $set: {
                     markedBy: req.user.id,
                     presentStudents: presentStudents,
-                    absentStudents: absentStudents
+                    absentStudents: absentStudents,
+                    academicYear: academicYear
                 }
             },
             { upsert: true }
@@ -83,14 +89,17 @@ const markAttendance = async (req, res) => {
 // @desc    Get Attendance for a specific Subject and Date
 // @route   GET /api/attendance/subject/:subjectId
 // @access  Private (Teacher/Admin)
-// IMPORTANT: Frontend (AttendanceReport.jsx) expects an array of objects with shape:
-//   { studentId: { _id, name, enrollmentNumber }, date: "ISO", status: "present"|"absent" }
+// Supports: ?academicYear=2025-26 (default=current), ?academicYear=all (no filter)
 const getSubjectAttendance = async (req, res) => {
     const { subjectId } = req.params;
-    const { date } = req.query;
+    const { date, academicYear: yearParam } = req.query;
 
     try {
-        let query = { subjectId };
+        // Determine academic year filter
+        const academicYear = yearParam || getCurrentAcademicYear();
+        const yearFilter = academicYear === 'all' ? {} : { academicYear };
+
+        let query = { subjectId, ...yearFilter };
         if (date) {
             const attendanceDate = new Date(date);
             attendanceDate.setUTCHours(0, 0, 0, 0);
@@ -111,7 +120,8 @@ const getSubjectAttendance = async (req, res) => {
                     subjectId: session.subjectId,
                     date: session.date.toISOString(),
                     status: 'present',
-                    markedBy: session.markedBy
+                    markedBy: session.markedBy,
+                    academicYear: session.academicYear
                 });
             });
             session.absentStudents.forEach(student => {
@@ -121,7 +131,8 @@ const getSubjectAttendance = async (req, res) => {
                     subjectId: session.subjectId,
                     date: session.date.toISOString(),
                     status: 'absent',
-                    markedBy: session.markedBy
+                    markedBy: session.markedBy,
+                    academicYear: session.academicYear
                 });
             });
         });
@@ -135,8 +146,7 @@ const getSubjectAttendance = async (req, res) => {
 // @desc    Get Single Student Attendance (List + Populated Refs)
 // @route   GET /api/attendance/student/:studentId
 // @access  Private
-// IMPORTANT: Frontend (StudentAttendance.jsx) expects an array of objects with shape:
-//   { subjectId: { subjectName, subjectCode }, markedBy: { name }, date: "ISO", status: "present"|"absent" }
+// Supports: ?academicYear=2025-26 (default=current), ?academicYear=all (show everything)
 const getStudentAttendance = async (req, res) => {
     if (req.user.role === 'student' && req.user.id !== req.params.studentId) {
         return res.status(403).json({ message: 'Not authorized' });
@@ -144,13 +154,28 @@ const getStudentAttendance = async (req, res) => {
 
     try {
         const studentId = req.params.studentId;
+        const yearParam = req.query.academicYear;
+
+        // For students viewing their own data: default to 'all' so they see full history
+        // For admin/teacher: default to current year
+        let academicYear;
+        if (yearParam) {
+            academicYear = yearParam;
+        } else if (req.user.role === 'student') {
+            academicYear = 'all'; // Students see all their history by default
+        } else {
+            academicYear = getCurrentAcademicYear();
+        }
+
+        const yearFilter = academicYear === 'all' ? {} : { academicYear };
 
         // Find sessions where this student appears in either array
         const sessions = await Attendance.find({
             $or: [
                 { presentStudents: studentId },
                 { absentStudents: studentId }
-            ]
+            ],
+            ...yearFilter
         })
             .populate('subjectId', 'subjectName subjectCode')
             .populate('markedBy', 'name')
@@ -167,7 +192,8 @@ const getStudentAttendance = async (req, res) => {
                 subjectId: session.subjectId,
                 markedBy: session.markedBy,
                 date: session.date.toISOString(),
-                status: isPresent ? 'present' : 'absent'
+                status: isPresent ? 'present' : 'absent',
+                academicYear: session.academicYear
             };
         });
 
@@ -180,11 +206,15 @@ const getStudentAttendance = async (req, res) => {
 // @desc    Generate Report (Admin)
 // @route   GET /api/attendance/report
 // @access  Private (Admin)
-// IMPORTANT: Frontend expects array of { _id: { _id, name, enrollmentNumber, department }, totalClasses, presentClasses, percentage }
+// Supports: ?academicYear=2025-26 (default=current), ?academicYear=all
 const getAttendanceReport = async (req, res) => {
     try {
-        // Fetch all sessions
-        const sessions = await Attendance.find({});
+        const yearParam = req.query.academicYear;
+        const academicYear = yearParam || getCurrentAcademicYear();
+        const yearFilter = academicYear === 'all' ? {} : { academicYear };
+
+        // Fetch sessions filtered by academic year
+        const sessions = await Attendance.find(yearFilter);
 
         // Build per-student stats
         const studentStats = {};
@@ -228,14 +258,16 @@ const getAttendanceReport = async (req, res) => {
 // @desc    Get Teacher's Submitted Attendance Records
 // @route   GET /api/attendance/teacher/submitted
 // @access  Private (Teacher)
-// IMPORTANT: Frontend (AttendanceStore.jsx) expects array of:
-//   { subject: { _id, subjectName, subjectCode, department, semester }, date, students: [{ _id, enrollmentNumber, name, status }] }
+// Supports: ?academicYear=2025-26 (default=current), ?academicYear=all
 const getTeacherSubmittedAttendance = async (req, res) => {
     try {
         const teacherId = req.user.id;
+        const yearParam = req.query.academicYear;
+        const academicYear = yearParam || getCurrentAcademicYear();
+        const yearFilter = academicYear === 'all' ? {} : { academicYear };
 
-        // Find all sessions marked by this teacher
-        const sessions = await Attendance.find({ markedBy: teacherId })
+        // Find all sessions marked by this teacher, filtered by academic year
+        const sessions = await Attendance.find({ markedBy: teacherId, ...yearFilter })
             .populate('subjectId', 'subjectName subjectCode department semester')
             .populate('presentStudents', 'name enrollmentNumber')
             .populate('absentStudents', 'name enrollmentNumber')
@@ -284,6 +316,7 @@ const getTeacherSubmittedAttendance = async (req, res) => {
                     semester: session.subjectId.semester
                 },
                 date: session.date,
+                academicYear: session.academicYear,
                 students: students
             };
         });
@@ -309,10 +342,14 @@ const deleteAttendanceRecord = async (req, res) => {
         const attendanceDate = new Date(date);
         attendanceDate.setUTCHours(0, 0, 0, 0);
 
+        // Calculate academic year for the date being deleted
+        const academicYear = getAcademicYear(attendanceDate);
+
         // Find and delete the single session document
         const result = await Attendance.deleteOne({
             subjectId: subjectId,
             date: attendanceDate,
+            academicYear: academicYear,
             markedBy: teacherId
         });
 

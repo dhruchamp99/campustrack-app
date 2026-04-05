@@ -12,7 +12,11 @@ const {
     createSubject,
     getAllSubjects,
     updateSubject,
-    addHoliday
+    addHoliday,
+    previewSemesterPromotion,
+    executeSemesterPromotion,
+    undoSemesterPromotion,
+    getPromotionHistory
 } = require('../controllers/adminController');
 
 // All routes here require Admin role
@@ -34,5 +38,11 @@ router.post('/subjects', createSubject);
 router.put('/subjects/:id', updateSubject);
 
 router.post('/holidays', addHoliday);
+
+// Semester Promotion
+router.get('/semester/preview', previewSemesterPromotion);
+router.post('/semester/promote', executeSemesterPromotion);
+router.post('/semester/undo/:promotionId', undoSemesterPromotion);
+router.get('/semester/history', getPromotionHistory);
 
 module.exports = router;

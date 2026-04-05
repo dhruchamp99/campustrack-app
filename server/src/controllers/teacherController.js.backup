@@ -1,7 +1,6 @@
 const Subject = require('../models/Subject');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
-const { getCurrentAcademicYear } = require('../utils/academicYear');
 
 // @desc    Get subjects assigned to teacher
 // @route   GET /api/teacher/subjects
@@ -152,12 +151,8 @@ const getSubjectAttendanceReport = async (req, res) => {
             ...batchQuery
         }).select('name enrollmentNumber batch').sort({ enrollmentNumber: 1 });
 
-        // 2. Fetch Attendance Stats for this Subject (filtered by academic year)
-        const yearParam = req.query.academicYear;
-        const academicYear = yearParam || getCurrentAcademicYear();
-        const yearFilter = academicYear === 'all' ? {} : { academicYear };
-
-        const sessions = await Attendance.find({ subjectId: subject._id, ...yearFilter });
+        // 2. Fetch Attendance Stats for this Subject (new array-based sessions)
+        const sessions = await Attendance.find({ subjectId: subject._id });
 
         // Build per-student stats from session arrays
         const statsMap = {};

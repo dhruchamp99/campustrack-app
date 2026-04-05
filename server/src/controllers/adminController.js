@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const Subject = require('../models/Subject');
 const Holiday = require('../models/Holiday');
+const SemesterPromotion = require('../models/SemesterPromotion');
+const { getCurrentAcademicYear } = require('../utils/academicYear');
 
 // --- USER MANAGEMENT ---
 
@@ -308,6 +310,162 @@ const addHoliday = async (req, res) => {
     }
 };
 
+// --- SEMESTER PROMOTION ---
+
+// @desc    Preview students for semester promotion
+// @route   GET /api/admin/semester/preview
+// @access  Private (Admin)
+const previewSemesterPromotion = async (req, res) => {
+    try {
+        const { department, semester } = req.query;
+
+        if (!department || !semester) {
+            return res.status(400).json({ message: 'Department and semester are required' });
+        }
+
+        const students = await User.find({
+            role: 'student',
+            department: department,
+            semester: semester
+        }).select('-password').sort({ enrollmentNumber: 1 });
+
+        res.json({
+            students,
+            total: students.length,
+            fromSemester: semester,
+            toSemester: String(parseInt(semester) + 1),
+            department
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Execute semester promotion
+// @route   POST /api/admin/semester/promote
+// @access  Private (Admin)
+const executeSemesterPromotion = async (req, res) => {
+    try {
+        const { department, fromSemester, toSemester, studentIds } = req.body;
+
+        // Validate inputs
+        if (!department || !fromSemester || !toSemester || !studentIds || studentIds.length === 0) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        // Validate semester progression
+        if (parseInt(toSemester) !== parseInt(fromSemester) + 1) {
+            return res.status(400).json({ message: 'Target semester must be exactly one more than current semester' });
+        }
+
+        // Verify all students exist and are in the correct department/semester
+        const students = await User.find({
+            _id: { $in: studentIds },
+            role: 'student',
+            department: department,
+            semester: fromSemester
+        }).select('name enrollmentNumber');
+
+        if (students.length === 0) {
+            return res.status(400).json({ message: 'No valid students found matching the criteria' });
+        }
+
+        if (students.length !== studentIds.length) {
+            return res.status(400).json({
+                message: `Only ${students.length} of ${studentIds.length} students match the department/semester. Some may have already been promoted.`
+            });
+        }
+
+        // Execute the promotion
+        const result = await User.updateMany(
+            { _id: { $in: studentIds } },
+            { $set: { semester: toSemester } }
+        );
+
+        // Create audit log
+        const promotionLog = await SemesterPromotion.create({
+            promotedBy: req.user.id,
+            fromSemester,
+            toSemester,
+            department,
+            academicYear: getCurrentAcademicYear(),
+            students: students.map(s => ({
+                studentId: s._id,
+                name: s.name,
+                enrollmentNumber: s.enrollmentNumber
+            })),
+            totalPromoted: result.modifiedCount
+        });
+
+        res.status(200).json({
+            message: `Successfully promoted ${result.modifiedCount} students from Semester ${fromSemester} to Semester ${toSemester}`,
+            promoted: result.modifiedCount,
+            promotionId: promotionLog._id
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Undo a semester promotion
+// @route   POST /api/admin/semester/undo/:promotionId
+// @access  Private (Admin)
+const undoSemesterPromotion = async (req, res) => {
+    try {
+        const { promotionId } = req.params;
+
+        const promotion = await SemesterPromotion.findById(promotionId);
+        if (!promotion) {
+            return res.status(404).json({ message: 'Promotion record not found' });
+        }
+
+        if (promotion.undone) {
+            return res.status(400).json({ message: 'This promotion has already been undone' });
+        }
+
+        // Get student IDs from the promotion record
+        const studentIds = promotion.students.map(s => s.studentId);
+
+        // Revert: set semester back to fromSemester for students who are still in toSemester
+        const result = await User.updateMany(
+            {
+                _id: { $in: studentIds },
+                semester: promotion.toSemester  // Only revert students still in the promoted semester
+            },
+            { $set: { semester: promotion.fromSemester } }
+        );
+
+        // Mark promotion as undone
+        promotion.undone = true;
+        promotion.undoneAt = new Date();
+        promotion.undoneBy = req.user.id;
+        await promotion.save();
+
+        res.status(200).json({
+            message: `Successfully reverted ${result.modifiedCount} students from Semester ${promotion.toSemester} back to Semester ${promotion.fromSemester}`,
+            reverted: result.modifiedCount
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get promotion history
+// @route   GET /api/admin/semester/history
+// @access  Private (Admin)
+const getPromotionHistory = async (req, res) => {
+    try {
+        const history = await SemesterPromotion.find()
+            .populate('promotedBy', 'name email')
+            .populate('undoneBy', 'name email')
+            .sort({ promotedAt: -1 });
+
+        res.json(history);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getAllStudents,
     getAllTeachers,
@@ -319,5 +477,9 @@ module.exports = {
     createSubject,
     getAllSubjects,
     updateSubject,
-    addHoliday
+    addHoliday,
+    previewSemesterPromotion,
+    executeSemesterPromotion,
+    undoSemesterPromotion,
+    getPromotionHistory
 };
