@@ -2,6 +2,14 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { getAcademicYear, getCurrentAcademicYear } = require('../utils/academicYear');
 
+// Helper: build a year filter that also includes records with missing academicYear
+// (backward compatibility for un-migrated production data)
+// Returns { academicYear: { $in: [...] } } which is safe to spread into any query
+function buildYearFilter(academicYear) {
+    if (!academicYear || academicYear === 'all') return {};
+    return { academicYear: { $in: [academicYear, null] } };
+}
+
 // @desc    Mark Attendance (Bulk or Single)
 // @route   POST /api/attendance/mark
 // @access  Private (Teacher)
@@ -97,7 +105,7 @@ const getSubjectAttendance = async (req, res) => {
     try {
         // Determine academic year filter
         const academicYear = yearParam || getCurrentAcademicYear();
-        const yearFilter = academicYear === 'all' ? {} : { academicYear };
+        const yearFilter = buildYearFilter(academicYear);
 
         let query = { subjectId, ...yearFilter };
         if (date) {
@@ -167,7 +175,7 @@ const getStudentAttendance = async (req, res) => {
             academicYear = getCurrentAcademicYear();
         }
 
-        const yearFilter = academicYear === 'all' ? {} : { academicYear };
+        const yearFilter = buildYearFilter(academicYear);
 
         // Find sessions where this student appears in either array
         const sessions = await Attendance.find({
@@ -211,7 +219,7 @@ const getAttendanceReport = async (req, res) => {
     try {
         const yearParam = req.query.academicYear;
         const academicYear = yearParam || getCurrentAcademicYear();
-        const yearFilter = academicYear === 'all' ? {} : { academicYear };
+        const yearFilter = buildYearFilter(academicYear);
 
         // Fetch sessions filtered by academic year
         const sessions = await Attendance.find(yearFilter);
@@ -264,7 +272,7 @@ const getTeacherSubmittedAttendance = async (req, res) => {
         const teacherId = req.user.id;
         const yearParam = req.query.academicYear;
         const academicYear = yearParam || getCurrentAcademicYear();
-        const yearFilter = academicYear === 'all' ? {} : { academicYear };
+        const yearFilter = buildYearFilter(academicYear);
 
         // Find all sessions marked by this teacher, filtered by academic year
         const sessions = await Attendance.find({ markedBy: teacherId, ...yearFilter })

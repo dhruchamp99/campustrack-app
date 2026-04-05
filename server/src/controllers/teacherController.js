@@ -3,6 +3,12 @@ const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const { getCurrentAcademicYear } = require('../utils/academicYear');
 
+// Helper: build a year filter safe for spreading (includes null/missing for backward compat)
+function buildYearFilter(academicYear) {
+    if (!academicYear || academicYear === 'all') return {};
+    return { academicYear: { $in: [academicYear, null] } };
+}
+
 // @desc    Get subjects assigned to teacher
 // @route   GET /api/teacher/subjects
 // @access  Private (Teacher)
@@ -155,7 +161,7 @@ const getSubjectAttendanceReport = async (req, res) => {
         // 2. Fetch Attendance Stats for this Subject (filtered by academic year)
         const yearParam = req.query.academicYear;
         const academicYear = yearParam || getCurrentAcademicYear();
-        const yearFilter = academicYear === 'all' ? {} : { academicYear };
+        const yearFilter = buildYearFilter(academicYear);
 
         const sessions = await Attendance.find({ subjectId: subject._id, ...yearFilter });
 
